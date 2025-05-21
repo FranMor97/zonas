@@ -7,10 +7,10 @@ abstract class ZoneEditorEvent extends Equatable {
   List<Object?> get props => [];
 }
 
-class ZoneEditorInitial extends ZoneEditorEvent {
+class ZoneEditorInitialized extends ZoneEditorEvent {
   final BoardConfig config;
 
-  const ZoneEditorInitial(this.config);
+  const ZoneEditorInitialized(this.config);
 
   @override
   List<Object?> get props => [config];
@@ -56,10 +56,10 @@ class EraserModeToggled extends ZoneEditorEvent {
   List<Object?> get props => [enabled];
 }
 
-class EditionModeChanged extends ZoneEditorEvent {
+class EditModeChanged extends ZoneEditorEvent {
   final String mode;
 
-  const EditionModeChanged(this.mode);
+  const EditModeChanged(this.mode);
 
   @override
   List<Object?> get props => [mode];

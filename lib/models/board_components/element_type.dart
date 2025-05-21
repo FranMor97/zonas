@@ -10,20 +10,20 @@ class ElementType extends Equatable {
   final IconData icon;
   final bool isWall;
   final Size defaultSize;
-  final String shape;
+  final String? shape;
 
   //este campo se utilizará en un futuro para añadir configuraciones a los diferentes elementos de los que dispondremos
-  final Map<String, dynamic> properties;
+  final Map<String, dynamic>? properties;
 
   const ElementType({
     required this.id,
     required this.name,
     required this.color,
     required this.icon,
-    required this.isWall,
+    this.isWall = false,
     required this.defaultSize,
-    required this.shape,
-    required this.properties,
+    this.shape,
+    this.properties,
   });
 
   ElementType copyWith({

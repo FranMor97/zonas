@@ -14,18 +14,29 @@ class BoardGrid extends StatelessWidget {
   /// Callback cuando se arrastra sobre una celda
   final Function(int x, int y)? onTileDrag;
 
+  final Function(int x, int y)? onEraseDrag;
+
+  final Function()? onDragEnd;
+
+
   /// La celda actualmente seleccionada (si hay)
   final Tile? selectedTile;
 
   /// Si es true, muestra coordenadas en cada celda (útil para debugging)
   final bool showCoordinates;
 
+  /// Si es true, muestra coordenadas en cada celda (útil para debugging)
+  final String mode;
+
   const BoardGrid({
     Key? key,
     required this.board,
     required this.onTileTap,
+    required this.mode,
     this.onTileDrag,
     this.selectedTile,
+    this.onEraseDrag,
+    this.onDragEnd,
     this.showCoordinates = false,
   }) : super(key: key);
 
@@ -58,7 +69,7 @@ class BoardGrid extends StatelessWidget {
           ...board.tiles.map((tile) => _buildTileWidget(context, tile)),
 
           // Contorno de selección para el tile seleccionado
-          if (selectedTile != null)
+          if (selectedTile != null && selectedTile!.isNotEmpty)
             Positioned(
               left: (selectedTile!.x * board.config.tileSize).toDouble(),
               top: (selectedTile!.y * board.config.tileSize).toDouble(),
@@ -105,10 +116,15 @@ class BoardGrid extends StatelessWidget {
           // Verificar que estamos dentro del tablero
           if (gridX >= 0 && gridX < board.config.columns &&
               gridY >= 0 && gridY < board.config.rows) {
-            onTileDrag!(gridX, gridY);
+            if(mode == 'erase' && onEraseDrag != null){
+              onEraseDrag!(gridX, gridY);
+            }else if(onTileDrag != null){
+              onTileDrag!(gridX, gridY);
+            }
           }
         }
             : null,
+        onPanEnd:  onDragEnd != null ? (details) {onDragEnd!();} :null,
         child: _TileContent(
           tile: tile,
           size: size,
@@ -119,7 +135,7 @@ class BoardGrid extends StatelessWidget {
   }
 }
 
-/// Widget que muestra el contenido de una celda
+
 class _TileContent extends StatelessWidget {
   final Tile tile;
   final double size;

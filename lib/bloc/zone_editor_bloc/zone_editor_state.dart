@@ -90,3 +90,13 @@ class ZoneEditorSucces extends ZoneEditorState {
   @override
   List<Object?> get props => [message, previousState];
 }
+
+
+class ZoneEditorSnackError extends ZoneEditorState {
+  final String message;
+
+  const ZoneEditorSnackError(this.message);
+
+  @override
+  List<Object?> get props => [message];
+}

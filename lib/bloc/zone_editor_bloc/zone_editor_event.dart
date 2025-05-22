@@ -102,7 +102,7 @@ class UpdateElementProperties extends ZoneEditorEvent {
   List<Object?> get props => [properties];
 }
 
-class BoardCleared extends ZoneEditorEvent {}
+class ClearBoard extends ZoneEditorEvent {}
 
 class UndoLastAction extends ZoneEditorEvent {}
 
@@ -115,4 +115,16 @@ class SaveCurrentBoard extends ZoneEditorEvent {
 
   @override
   List<Object?> get props => [name];
+}
+
+class DragEnded extends ZoneEditorEvent {}
+
+class EraseDragg extends ZoneEditorEvent {
+  final int eraseX;
+  final int eraseY;
+
+  const EraseDragg(this.eraseX, this.eraseY);
+
+  @override
+  List<Object?> get props => [eraseX, eraseY];
 }

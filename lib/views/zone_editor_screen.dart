@@ -13,7 +13,7 @@ class ZoneEditorScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return BlocConsumer<ZoneEditorBloc, ZoneEditorState>(
       listener: (context, state) {
-        if (state is ZoneEditorError) {
+        if (state is ZoneEditorSnackError) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(state.message),
@@ -122,7 +122,7 @@ class _ZoneEditorView extends StatelessWidget {
                 'Limpiar tablero',
                 '¿Estás seguro de que deseas limpiar todo el tablero?',
                     () {
-                  context.read<ZoneEditorBloc>().add(BoardCleared());
+                  context.read<ZoneEditorBloc>().add(ClearBoard());
                 },
               );
             },
@@ -159,7 +159,7 @@ class _ZoneEditorView extends StatelessWidget {
           // Barra de modo actual
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-            color: Color(0xFF333333), // Barra oscura
+            color: const Color(0xFF333333), // Barra oscura
             child: Row(
               children: [
                 Icon(
@@ -215,10 +215,10 @@ class _ZoneEditorView extends StatelessWidget {
             ),
           ),
 
-          // Tablero principal (grid)
+
           Expanded(
             child: Container(
-              color: Color(0xFF1A1A1A), // Fondo más oscuro para el área del tablero
+              color: const Color(0xFF1A1A1A), // Fondo más oscuro para el área del tablero
               child: Center(
                 child: SingleChildScrollView(
                   scrollDirection: Axis.horizontal,
@@ -233,8 +233,15 @@ class _ZoneEditorView extends StatelessWidget {
                         onTileDrag: (x, y) {
                           context.read<ZoneEditorBloc>().add(TileDragged(x, y));
                         },
+                        onEraseDrag: (x, y) {
+                          context.read<ZoneEditorBloc>().add(EraseDragg(x, y));
+                        },
+                        onDragEnd: () {
+                          context.read<ZoneEditorBloc>().add(DragEnded());
+                        },
                         selectedTile: state.selectedTile,
-                        showCoordinates: false,
+                        mode : state.editMode,
+                        showCoordinates: true,
                       ),
                     ),
                   ),
@@ -382,14 +389,14 @@ class _ZoneEditorView extends StatelessWidget {
       BuildContext context,
       String title,
       String message,
-      VoidCallback onConfirm,
+      Function() onConfirm,
       ) {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        backgroundColor: Color(0xFF333333),
-        title: Text(title, style: TextStyle(color: Colors.white)),
-        content: Text(message, style: TextStyle(color: Colors.white70)),
+        backgroundColor: const Color(0xFF333333),
+        title: Text(title, style: const TextStyle(color: Colors.white)),
+        content: Text(message, style: const TextStyle(color: Colors.white70)),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(),

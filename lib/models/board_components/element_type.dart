@@ -11,6 +11,7 @@ class ElementType extends Equatable {
   final bool isWall;
   final Size defaultSize;
   final String? shape;
+  final bool isSelectionTool;
 
   //este campo se utilizará en un futuro para añadir configuraciones a los diferentes elementos de los que dispondremos
   final Map<String, dynamic>? properties;
@@ -23,6 +24,7 @@ class ElementType extends Equatable {
     this.isWall = false,
     required this.defaultSize,
     this.shape,
+    this.isSelectionTool = false,
     this.properties,
   });
 
@@ -57,6 +59,7 @@ class ElementType extends Equatable {
         isWall,
         defaultSize,
         shape,
+        isSelectionTool,
         properties,
       ];
 }

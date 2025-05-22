@@ -22,7 +22,7 @@ class ZoneEditorBloc extends Bloc<ZoneEditorEvent, ZoneEditorState> {
   ZoneEditorBloc() : super(ZoneEditorInitial()) {
     on<ZoneEditorInitialized>(_onInitialized);
     on<ElementTypeSelected>(_onElementTypeSelected);
-    on<TileTapped>(_onTileTapeped);
+    on<TileTapped>(_onTileTapped);
     on<SaveCurrentBoard>(_onSaveCurrentBoard);
     on<TileDragged>(_onTileDragged);
     on<EraserModeToggled>(_onEraserModeTaggled);
@@ -31,9 +31,22 @@ class ZoneEditorBloc extends Bloc<ZoneEditorEvent, ZoneEditorState> {
     on<RotateSelectedElement>(_onRotateSelectedElement);
     on<MoveSelectedElement>(_onMoveSelectedElement);
     on<UpdateElementProperties>(_onUpdateElementProperties);
+    on<ClearBoard>(_onBoardCleared);
+    on<UndoLastAction>(_onUndoLastAction);
+    on<RedoLastAction>(_onRedoLastAction);
+    on<DragEnded>(_onDragEnded);
+    on<EraseDragg>(_onEraseDragg);
   }
 
   List<ElementType> get _predefinedElements => [
+        ElementType(
+          id: 'select_tool',
+          name: 'Seleccionar',
+          color: Colors.blue.shade500,
+          icon: Icons.select_all,
+          isSelectionTool: true,
+          defaultSize: const Size(1, 1),
+        ),
         ElementType(
           id: 'wall',
           name: 'Pared',
@@ -113,15 +126,24 @@ class ZoneEditorBloc extends Bloc<ZoneEditorEvent, ZoneEditorState> {
     if (state is ZoneEditorLoaded) {
       final currentState = state as ZoneEditorLoaded;
 
+      if(event.elementType.isSelectionTool){
       emit(currentState.copyWith(
         selectedElement: event.elementType,
         eraserMode: false,
-        editMode: 'place',
-      ));
+        editMode: 'select',
+        selectedTile: null,
+        hasSelectedTile: false,
+      ));}else{
+        emit(currentState.copyWith(
+          selectedElement: event.elementType,
+          eraserMode: false,
+          editMode: 'place',
+        ));
+      }
     }
   }
 
-  void _onTileTapeped(TileTapped event, Emitter<ZoneEditorState> emit) {
+  void _onTileTapped(TileTapped event, Emitter<ZoneEditorState> emit) {
     if (state is ZoneEditorLoaded) {
       final currentState = state as ZoneEditorLoaded;
       final Board board = currentState.board;
@@ -222,12 +244,12 @@ class ZoneEditorBloc extends Bloc<ZoneEditorEvent, ZoneEditorState> {
     }
   }
 
-  void _onEditModeChanged(EditModeChanged event, Emitter<ZoneEditorState> emit){
+  void _onEditModeChanged(EditModeChanged event, Emitter<ZoneEditorState> emit) {
     if (state is ZoneEditorLoaded) {
       final currentState = state as ZoneEditorLoaded;
 
       emit(currentState.copyWith(
-        editMode : event.mode,
+        editMode: event.mode,
         eraserMode: event.mode == 'erase',
         selectedElement: event.mode == 'erase' ? null : currentState.selectedElement,
       ));
@@ -235,10 +257,10 @@ class ZoneEditorBloc extends Bloc<ZoneEditorEvent, ZoneEditorState> {
   }
 
   void _onTileSelected(
-      TileSelected event,
-      Emitter<ZoneEditorState> emit,
-      ){
-    if(state is ZoneEditorLoaded){
+    TileSelected event,
+    Emitter<ZoneEditorState> emit,
+  ) {
+    if (state is ZoneEditorLoaded) {
       final currentState = state as ZoneEditorLoaded;
       emit(currentState.copyWith(
         selectedTile: event.tile,
@@ -248,9 +270,9 @@ class ZoneEditorBloc extends Bloc<ZoneEditorEvent, ZoneEditorState> {
   }
 
   void _onRotateSelectedElement(
-      RotateSelectedElement event,
-      Emitter<ZoneEditorState> emit,
-      ) {
+    RotateSelectedElement event,
+    Emitter<ZoneEditorState> emit,
+  ) {
     if (state is ZoneEditorLoaded) {
       final currentState = state as ZoneEditorLoaded;
 
@@ -260,7 +282,7 @@ class ZoneEditorBloc extends Bloc<ZoneEditorEvent, ZoneEditorState> {
         if (tile.elementId != null) {
           final Board board = currentState.board;
 
-          // Rotar el elemento usando el método dedicado
+
           final Board updatedBoard = board.rotateElement(
             tile.elementId!,
             event.clockwise,
@@ -272,7 +294,7 @@ class ZoneEditorBloc extends Bloc<ZoneEditorEvent, ZoneEditorState> {
 
             // Encontrar el nuevo tile de origen para mantener la selección
             final newOrigin = updatedBoard.tiles.firstWhere(
-                  (t) => t.elementId == tile.elementId && t.isOrigin,
+              (t) => t.elementId == tile.elementId && t.isOrigin,
               orElse: () => tile,
             );
 
@@ -281,13 +303,8 @@ class ZoneEditorBloc extends Bloc<ZoneEditorEvent, ZoneEditorState> {
               selectedTile: newOrigin,
             ));
           } else {
-            // La rotación no fue posible
-            emit(const ZoneEditorError('No se puede rotary: no hay espacio disponible'));
-
-            // Volver al estado anterior después de mostrar el error
-            Future.delayed(const Duration(seconds: 1), () {
-              emit(currentState);
-            });
+            emit(const ZoneEditorSnackError('No se puede rotary: no hay espacio disponible'));
+            emit(currentState);
           }
         }
       }
@@ -295,9 +312,9 @@ class ZoneEditorBloc extends Bloc<ZoneEditorEvent, ZoneEditorState> {
   }
 
   void _onMoveSelectedElement(
-      MoveSelectedElement event,
-      Emitter<ZoneEditorState> emit,
-      ) {
+    MoveSelectedElement event,
+    Emitter<ZoneEditorState> emit,
+  ) {
     if (state is ZoneEditorLoaded) {
       final currentState = state as ZoneEditorLoaded;
 
@@ -320,7 +337,6 @@ class ZoneEditorBloc extends Bloc<ZoneEditorEvent, ZoneEditorState> {
             properties: tile.properties,
           );
 
-
           if (updatedBoard != board) {
             _saveToHistory(updatedBoard);
 
@@ -335,10 +351,11 @@ class ZoneEditorBloc extends Bloc<ZoneEditorEvent, ZoneEditorState> {
       }
     }
   }
+
   void _onUpdateElementProperties(
-      UpdateElementProperties event,
-      Emitter<ZoneEditorState> emit,
-      ) {
+    UpdateElementProperties event,
+    Emitter<ZoneEditorState> emit,
+  ) {
     if (state is ZoneEditorLoaded) {
       final currentState = state as ZoneEditorLoaded;
 
@@ -382,13 +399,14 @@ class ZoneEditorBloc extends Bloc<ZoneEditorEvent, ZoneEditorState> {
         }
       }
     }
-
   }
-  void _onSaveCurrentBoard(SaveCurrentBoard event,
-      Emitter<ZoneEditorState> emit,) {
+
+  void _onSaveCurrentBoard(
+    SaveCurrentBoard event,
+    Emitter<ZoneEditorState> emit,
+  ) {
     if (state is ZoneEditorLoaded) {
       final currentState = state as ZoneEditorLoaded;
-
 
       emit(ZoneEditorSucces(
         'Tablero guardado correctamente',
@@ -401,6 +419,63 @@ class ZoneEditorBloc extends Bloc<ZoneEditorEvent, ZoneEditorState> {
           emit((state as ZoneEditorSucces).previousState);
         }
       });
+    }
+  }
+
+  void _onBoardCleared(ClearBoard event, Emitter<ZoneEditorState> emit) {
+    if (state is ZoneEditorLoaded) {
+      final currentState = state as ZoneEditorLoaded;
+      final Board board = currentState.board;
+      final boardUpdated = board.clear();
+      _saveToHistory(board);
+      emit(currentState.copyWith(board: boardUpdated));
+    }
+  }
+
+  void _onUndoLastAction(UndoLastAction event, Emitter<ZoneEditorState> emit) {
+    if (state is ZoneEditorLoaded) {
+      final currentState = state as ZoneEditorLoaded;
+      if (_undoStack.length > 1) {
+        _redoStack.addFirst(_undoStack.removeFirst());
+        final previousBoard = _undoStack.first;
+        emit(currentState.copyWith(
+            board: previousBoard, selectedTile: null, hasSelectedTile: false));
+      }
+    }
+  }
+
+  void _onRedoLastAction(RedoLastAction event, Emitter<ZoneEditorState> emit) {
+    if (state is ZoneEditorLoaded) {
+      final currentState = state as ZoneEditorLoaded;
+      if (_redoStack.isNotEmpty) {
+        final nextBoard = _redoStack.removeFirst();
+        _undoStack.addFirst(nextBoard);
+
+        emit(currentState.copyWith(
+          board: nextBoard,
+          selectedTile: null,
+          hasSelectedTile: false,
+        ));
+      }
+    }
+  }
+
+  void _onDragEnded(DragEnded event, Emitter<ZoneEditorState> emit) {
+    if (state is ZoneEditorLoaded) {
+      final currentState = state as ZoneEditorLoaded;
+
+      if (_undoStack.isNotEmpty && currentState.board != _undoStack.first) {
+        _saveToHistory(currentState.board);
+      }
+    }
+  }
+
+  void _onEraseDragg(EraseDragg event, Emitter<ZoneEditorState> emit) {
+    if (state is ZoneEditorLoaded) {
+      final currentState = state as ZoneEditorLoaded;
+      final Board board = currentState.board;
+      final updatedBoard = board.removeElement(event.eraseX, event.eraseY);
+      emit(currentState.copyWith(board: updatedBoard));
     }
   }
 }

@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:equatable/equatable.dart';
 import 'package:table_game/models/board_components/tile.dart';
 import 'package:table_game/models/board_config.dart';
@@ -67,6 +69,8 @@ class Board extends Equatable {
     return 'elem_${_elementCounter + 1}';
   }
 
+
+
   Board rotateElement(
       String elementId,
       bool clockwise,
@@ -77,55 +81,69 @@ class Board extends Equatable {
       return this; // El elemento no existe
     }
 
-    // 2. Encontrar el tipo de elemento y otras propiedades clave
-    final elementType = elementTiles.first.type!;
-    final currentRotation = elementTiles.first.rotation;
-
-    // 3. Calcular la nueva rotación
-    final newRotation = (currentRotation + (clockwise ? 90 : -90)) % 360;
-
-    // 4. Encontrar la celda de origen
+    // 2. Encontrar el tile de origen
     final originTile = elementTiles.firstWhere(
           (tile) => tile.isOrigin,
       orElse: () => elementTiles.first,
     );
-    final originX = originTile.x;
-    final originY = originTile.y;
 
-    // 5. Determinar las dimensiones actuales y nuevas
-    int currentWidth = elementType.defaultSize.width.toInt();
-    int currentHeight = elementType.defaultSize.height.toInt();
+    // 3. Calcular la nueva rotación
+    final currentRotation = originTile.rotation;
+    final newRotation = (currentRotation + (clockwise ? 90 : -90)) % 360;
 
-    // Ajustar por rotación actual
-    if (currentRotation == 90 || currentRotation == 270) {
-      final temp = currentWidth;
-      currentWidth = currentHeight;
-      currentHeight = temp;
-    }
-
-    // Determinar las nuevas dimensiones
-    int newWidth, newHeight;
-    if ((currentRotation % 180) != (newRotation % 180)) {
-      // La rotación cambia la orientación
-      newWidth = currentHeight;
-      newHeight = currentWidth;
-    } else {
-      // La rotación mantiene la orientación
-      newWidth = currentWidth;
-      newHeight = currentHeight;
-    }
-
-    // 6. Crear un tablero temporal sin el elemento actual
+    // 4. Crear una matriz temporal sin el elemento actual
     Board tempBoard = this;
     for (final tile in elementTiles) {
       tempBoard = tempBoard.updateTile(tile.empty());
     }
 
-    // 7. Verificar si podemos colocar el elemento rotado
-    if (!tempBoard.canPlaceElementWithSize(originX, originY, newWidth, newHeight)) {
-      return this; // No hay espacio para la rotación
+    // 5. Calcular las nuevas posiciones después de rotar
+    List<Point<int>> newPositions = [];
+    int originX = originTile.x;
+    int originY = originTile.y;
+
+    for (final tile in elementTiles) {
+      // Posición relativa al origen
+      int relX = tile.x - originX;
+      int relY = tile.y - originY;
+
+      // Aplicar rotación
+      int newRelX, newRelY;
+      if (clockwise) {
+        // Rotación 90° horaria: (x,y) -> (-y,x)
+        newRelX = -relY;
+        newRelY = relX;
+      } else {
+        // Rotación 90° antihoraria: (x,y) -> (y,-x)
+        newRelX = relY;
+        newRelY = -relX;
+      }
+
+      // Calcular nueva posición absoluta
+      int newX = originX + newRelX;
+      int newY = originY + newRelY;
+      newPositions.add(Point(newX, newY));
     }
 
+    // 6. Verificar si es posible colocar el elemento rotado
+    for (var point in newPositions) {
+      // Verificar límites del tablero
+      if (point.x < 0 || point.x >= config.columns ||
+          point.y < 0 || point.y >= config.rows) {
+        return this; // Fuera de los límites
+      }
+
+      // Verificar colisiones
+      final tile = tempBoard.getTile(point.x, point.y);
+      if (tile == null || tile.isNotEmpty) {
+        return this; // Colisión detectada
+      }
+    }
+
+    // 7. Colocar el elemento rotado
+    Board updatedBoard = tempBoard;
+
+    // Propiedades adicionales a preservar
     Map<String, dynamic> additionalProps = {};
     for (final prop in originTile.properties!.entries) {
       if (!['rotation', 'isOrigin', 'elementX', 'elementY', 'originX', 'originY'].contains(prop.key)) {
@@ -133,17 +151,36 @@ class Board extends Equatable {
       }
     }
 
-    // 9. Colocar el elemento rotado
-    return tempBoard.placeElement(
-      originX,
-      originY,
-      elementType,
-      properties: additionalProps,
-      elementId: elementId,
-      rotation: newRotation,
-    );
-  }
+    // Encontrar el nuevo origen (el que estaba más cerca del origen anterior)
+    final newOriginPoint = newPositions.reduce((a, b) {
+      final distA = (a.x - originX).abs() + (a.y - originY).abs();
+      final distB = (b.x - originX).abs() + (b.y - originY).abs();
+      return distA <= distB ? a : b;
+    });
 
+    for (var point in newPositions) {
+      final tile = tempBoard.getTile(point.x, point.y);
+      if (tile != null) {
+        final isNewOrigin = (point.x == newOriginPoint.x && point.y == newOriginPoint.y);
+
+        final updatedTile = tile.asPartOfElement(
+          elementType: originTile.type!,
+          elementId: elementId,
+          originX: newOriginPoint.x,
+          originY: newOriginPoint.y,
+          rotation: newRotation,
+          additionalProperties: {
+            ...additionalProps,
+            'isOrigin': isNewOrigin,
+          },
+        );
+
+        updatedBoard = updatedBoard.updateTile(updatedTile);
+      }
+    }
+
+    return updatedBoard;
+  }
 
   Board placeElement(
       int x,

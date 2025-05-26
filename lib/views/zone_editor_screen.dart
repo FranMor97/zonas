@@ -34,16 +34,15 @@ class ZoneEditorScreen extends StatelessWidget {
           return _ZoneEditorView(state: state);
         } else if (state is ZoneEditorLoading) {
           return const Scaffold(
-            backgroundColor: Color(0xFF212121), // Fondo oscuro
+            backgroundColor: Color(0xFF212121),
             body: Center(child: CircularProgressIndicator()),
           );
         } else if (state is ZoneEditorError) {
-          // Mostrar un mensaje de error pero permitir reintentar
           return Scaffold(
-            backgroundColor: Color(0xFF212121), // Fondo oscuro
+            backgroundColor: Color(0xFF212121),
             appBar: AppBar(
               title: const Text('Editor de Zonas'),
-              backgroundColor: Color(0xFF333333), // Barra oscura
+              backgroundColor: Color(0xFF333333),
             ),
             body: Center(
               child: Column(
@@ -54,7 +53,7 @@ class ZoneEditorScreen extends StatelessWidget {
                   const SizedBox(height: 16),
                   ElevatedButton(
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: Color(0xFF00BFA5), // Verde azulado
+                      backgroundColor: Color(0xFF00BFA5),
                     ),
                     onPressed: () {
                       // Reintentar con la configuración inicial
@@ -66,9 +65,8 @@ class ZoneEditorScreen extends StatelessWidget {
             ),
           );
         } else {
-          // Estado inicial
           return const Scaffold(
-            backgroundColor: Color(0xFF212121), // Fondo oscuro
+            backgroundColor: Color(0xFF212121),
             body: Center(
               child: Text(
                 'Inicializando editor...',
@@ -89,14 +87,14 @@ class _ZoneEditorView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+
     return Scaffold(
-      backgroundColor: Color(0xFF212121), // Fondo oscuro
+      backgroundColor: Color(0xFF212121),
       appBar: AppBar(
-        backgroundColor: Color(0xFF333333), // Barra oscura
+        backgroundColor: Color(0xFF333333),
         title: Text('Editor - ${state.board.config.name}'),
         iconTheme: const IconThemeData(color: Colors.white),
         actions: [
-          // Botón de deshacer
           IconButton(
             icon: const Icon(Icons.undo),
             tooltip: 'Deshacer',
@@ -104,7 +102,6 @@ class _ZoneEditorView extends StatelessWidget {
               context.read<ZoneEditorBloc>().add(UndoLastAction());
             },
           ),
-          // Botón de rehacer
           IconButton(
             icon: const Icon(Icons.redo),
             tooltip: 'Rehacer',
@@ -112,7 +109,6 @@ class _ZoneEditorView extends StatelessWidget {
               context.read<ZoneEditorBloc>().add(RedoLastAction());
             },
           ),
-          // Botón para limpiar el tablero
           IconButton(
             icon: const Icon(Icons.clear_all),
             tooltip: 'Limpiar tablero',
@@ -127,7 +123,6 @@ class _ZoneEditorView extends StatelessWidget {
               );
             },
           ),
-          // Botón para guardar
           IconButton(
             icon: const Icon(Icons.save),
             tooltip: 'Guardar',
@@ -137,125 +132,135 @@ class _ZoneEditorView extends StatelessWidget {
           ),
         ],
       ),
-      body: Column(
+      body: Stack(
         children: [
-          // Paleta de elementos disponibles
-          Container(
-            padding: const EdgeInsets.all(8.0),
-            color: Color(0xFF333333), // Fondo oscuro para la paleta
-            child: ElementPalette(
-              elements: state.availableElements,
-              selectedElement: state.selectedElement,
-              eraserMode: state.eraserMode,
-              onElementSelected: (element) {
-                context.read<ZoneEditorBloc>().add(ElementTypeSelected(element));
-              },
-              onEraserToggled: (enabled) {
-                context.read<ZoneEditorBloc>().add(EraserModeToggled(enabled));
-              },
-            ),
-          ),
+          Column(
+            children: [
+              // Paleta de elementos disponibles
+              Container(
+                padding: const EdgeInsets.all(8.0),
+                color: Color(0xFF333333),
+                child: ElementPalette(
+                  elements: state.availableElements,
+                  selectedElement: state.selectedElement,
+                  eraserMode: state.eraserMode,
+                  onElementSelected: (element) {
+                    context.read<ZoneEditorBloc>().add(ElementTypeSelected(element));
+                  },
+                  onEraserToggled: (enabled) {
+                    context.read<ZoneEditorBloc>().add(EraserModeToggled(enabled));
+                  },
+                ),
+              ),
 
-          // Barra de modo actual
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-            color: const Color(0xFF333333), // Barra oscura
-            child: Row(
-              children: [
-                Icon(
-                  state.eraserMode
-                      ? Icons.delete_outline
-                      : state.selectedElement?.icon ?? Icons.touch_app,
-                  color: state.eraserMode
-                      ? Colors.red
-                      : state.selectedElement?.color ?? Colors.white70,
-                ),
-                const SizedBox(width: 8.0),
-                Text(
-                  state.eraserMode
-                      ? 'Modo borrador'
-                      : state.selectedElement != null
-                      ? 'Elemento: ${state.selectedElement!.name}'
-                      : 'Selecciona un elemento',
-                  style: const TextStyle(
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
-                  ),
-                ),
-                const Spacer(),
-                // Botones de modo - usando botones individuales
-                Row(
+              // Barra de modo actual
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+                color: const Color(0xFF333333),
+                child: Row(
                   children: [
-                    _buildModeButton(
-                      context,
-                      'place',
-                      Icons.add_box,
-                      'Colocar',
-                      state.editMode == 'place',
+                    Icon(
+                      state.eraserMode
+                          ? Icons.delete_outline
+                          : state.editMode == 'select'
+                          ? Icons.select_all
+                          : state.selectedElement?.icon ?? Icons.touch_app,
+                      color: state.eraserMode
+                          ? Colors.red
+                          : state.editMode == 'select'
+                          ? Colors.blue
+                          : state.selectedElement?.color ?? Colors.white70,
                     ),
-                    const SizedBox(width: 8),
-                    _buildModeButton(
-                      context,
-                      'erase',
-                      Icons.delete,
-                      'Borrar',
-                      state.editMode == 'erase',
+                    const SizedBox(width: 8.0),
+                    Text(
+                      state.eraserMode
+                          ? 'Modo borrador'
+                          : state.editMode == 'select'
+                          ? 'Modo selección'
+                          : state.selectedElement != null
+                          ? 'Elemento: ${state.selectedElement!.name}'
+                          : 'Selecciona un elemento',
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ),
                     ),
-                    const SizedBox(width: 8),
-                    _buildModeButton(
-                      context,
-                      'select',
-                      Icons.select_all,
-                      'Seleccionar',
-                      state.editMode == 'select',
+                    const Spacer(),
+                    // Botones de modo
+                    Row(
+                      children: [
+                        _buildModeButton(
+                          context,
+                          'place',
+                          Icons.add_box,
+                          'Colocar',
+                          state.editMode == 'place',
+                        ),
+                        const SizedBox(width: 8),
+                        _buildModeButton(
+                          context,
+                          'erase',
+                          Icons.delete,
+                          'Borrar',
+                          state.editMode == 'erase',
+                        ),
+                        const SizedBox(width: 8),
+                        _buildModeButton(
+                          context,
+                          'select',
+                          Icons.select_all,
+                          'Seleccionar',
+                          state.editMode == 'select',
+                        ),
+                      ],
                     ),
                   ],
                 ),
-              ],
-            ),
-          ),
+              ),
 
-
-          Expanded(
-            child: Container(
-              color: const Color(0xFF1A1A1A), // Fondo más oscuro para el área del tablero
-              child: Center(
-                child: SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: SingleChildScrollView(
-                    child: Padding(
-                      padding: const EdgeInsets.all(16.0),
-                      child: BoardGrid(
-                        board: state.board,
-                        onTileTap: (x, y) {
-                          context.read<ZoneEditorBloc>().add(TileTapped(x, y));
-                        },
-                        onTileDrag: (x, y) {
-                          context.read<ZoneEditorBloc>().add(TileDragged(x, y));
-                        },
-                        onEraseDrag: (x, y) {
-                          context.read<ZoneEditorBloc>().add(EraseDragg(x, y));
-                        },
-                        onDragEnd: () {
-                          context.read<ZoneEditorBloc>().add(DragEnded());
-                        },
-                        selectedTile: state.selectedTile,
-                        mode : state.editMode,
-                        showCoordinates: true,
+              Expanded(
+                child: Container(
+                  color: const Color(0xFF1A1A1A),
+                  child: Center(
+                    child: SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: SingleChildScrollView(
+                        child: Padding(
+                          padding: const EdgeInsets.all(16.0),
+                          child: BoardGrid(
+                            board: state.board,
+                            onTileTap: (x, y) {
+                              context.read<ZoneEditorBloc>().add(TileTapped(x, y));
+                            },
+                            onTileDrag: (x, y) {
+                              context.read<ZoneEditorBloc>().add(TileDragged(x, y));
+                            },
+                            onEraseDrag: (x, y) {
+                              context.read<ZoneEditorBloc>().add(EraseDragg(x, y));
+                            },
+                            onDragEnd: () {
+                              context.read<ZoneEditorBloc>().add(DragEnded());
+                            },
+                            selectedTile: state.selectedTile,
+                            mode: state.editMode,
+                            selectedElement: state.selectedElement,
+                            showCoordinates: true,
+                          ),
+                        ),
                       ),
                     ),
                   ),
                 ),
               ),
-            ),
+            ],
           ),
         ],
       ),
-      // Panel de propiedades cuando hay un elemento seleccionado
       bottomSheet: state.hasSelectedTile && state.editMode == 'select'
           ? _buildPropertiesPanel(context, state)
           : null,
     );
+
   }
 
   Widget _buildModeButton(
@@ -302,7 +307,7 @@ class _ZoneEditorView extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(16.0),
       decoration: BoxDecoration(
-        color: Color(0xFF333333), // Panel oscuro
+        color: Color(0xFF333333),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.3),
@@ -315,7 +320,6 @@ class _ZoneEditorView extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Título del panel
           Row(
             children: [
               Icon(elementType.icon, color: elementType.color),
@@ -329,26 +333,21 @@ class _ZoneEditorView extends StatelessWidget {
                 ),
               ),
               const Spacer(),
-              // Botón para cerrar el panel
               IconButton(
                 icon: const Icon(Icons.close, color: Colors.white),
                 onPressed: () {
                   context.read<ZoneEditorBloc>().add(
-                    TileSelected(Tile(x: -1, y: -1)), // Deseleccionar
+                    TileSelected(Tile(x: -1, y: -1)),
                   );
                 },
               ),
             ],
           ),
           const SizedBox(height: 16.0),
-
-          // Información de posición
           Text(
             'Posición: (${tile.x}, ${tile.y})',
             style: TextStyle(color: Colors.white70),
           ),
-
-          // Rotación
           Row(
             children: [
               Text(
@@ -361,7 +360,7 @@ class _ZoneEditorView extends StatelessWidget {
                 tooltip: 'Rotar izquierda',
                 onPressed: () {
                   context.read<ZoneEditorBloc>().add(
-                    RotateSelectedElement( false),
+                    RotateSelectedElement(false),
                   );
                 },
               ),
@@ -374,7 +373,7 @@ class _ZoneEditorView extends StatelessWidget {
                 tooltip: 'Rotar derecha',
                 onPressed: () {
                   context.read<ZoneEditorBloc>().add(
-                    RotateSelectedElement( true),
+                    RotateSelectedElement(true),
                   );
                 },
               ),

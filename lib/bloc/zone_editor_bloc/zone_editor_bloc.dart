@@ -222,7 +222,6 @@ class ZoneEditorBloc extends Bloc<ZoneEditorEvent, ZoneEditorState> {
       if (currentState.editMode == 'place' && currentState.selectedElement != null) {
         final Board board = currentState.board;
         final updatedBoard = board.placeElement(event.x, event.y, currentState.selectedElement!);
-        //no se guarda en el historial todavia, se guardara cuando se "suelte" el elemento
         if (updatedBoard != board) {
           emit(currentState.copyWith(board: updatedBoard));
         }

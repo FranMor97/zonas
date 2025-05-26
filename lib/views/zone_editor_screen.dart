@@ -1,6 +1,7 @@
 // lib/screens/zone_editor_screen.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:table_game/models/board_components/board.dart';
 import '../bloc/zone_editor_bloc/zone_editor_bloc.dart';
 import '../models/board_components/tile.dart';
 import '../widgets/board_grid.dart';
@@ -89,12 +90,42 @@ class _ZoneEditorView extends StatelessWidget {
   Widget build(BuildContext context) {
 
     return Scaffold(
-      backgroundColor: Color(0xFF212121),
+      backgroundColor: const Color(0xFF212121),
       appBar: AppBar(
-        backgroundColor: Color(0xFF333333),
+        backgroundColor: const Color(0xFF333333),
         title: Text('Editor - ${state.board.config.name}'),
         iconTheme: const IconThemeData(color: Colors.white),
         actions: [
+          // Botón de selección múltiple (solo visible en modo selección)
+          if (state.editMode == 'select')
+            IconButton(
+              icon: Icon(
+                state.isMultiSelectMode
+                    ? Icons.select_all
+                    : Icons.checklist,
+                color: state.isMultiSelectMode ? Colors.lightBlue : Colors.white,
+              ),
+              tooltip: state.isMultiSelectMode
+                  ? 'Desactivar selección múltiple'
+                  : 'Activar selección múltiple',
+              onPressed: () {
+                context.read<ZoneEditorBloc>().add(
+                    ToggleMultiSelectMode(!state.isMultiSelectMode)
+                );
+              },
+            ),
+
+          // Botón para fusionar (solo visible en modo selección múltiple con tiles seleccionados)
+          if (state.isMultiSelectMode && state.selectedTiles.length > 1)
+            IconButton(
+              icon: const Icon(Icons.merge_type),
+              tooltip: 'Fusionar tiles seleccionados',
+              onPressed: () {
+                context.read<ZoneEditorBloc>().add(MergeSelectedTiles());
+              },
+            ),
+
+          // Acciones existentes
           IconButton(
             icon: const Icon(Icons.undo),
             tooltip: 'Deshacer',
@@ -127,7 +158,7 @@ class _ZoneEditorView extends StatelessWidget {
             icon: const Icon(Icons.save),
             tooltip: 'Guardar',
             onPressed: () {
-              context.read<ZoneEditorBloc>().add(SaveCurrentBoard());
+              context.read<ZoneEditorBloc>().add(const SaveCurrentBoard());
             },
           ),
         ],
@@ -152,6 +183,33 @@ class _ZoneEditorView extends StatelessWidget {
                   },
                 ),
               ),
+
+              if (state.isMultiSelectMode)
+                Container(
+                  color: Colors.blue.withOpacity(0.2),
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.select_all, color: Colors.lightBlue),
+                      const SizedBox(width: 8),
+                      Text(
+                        'Modo selección múltiple activo (${state.selectedTiles.length} seleccionados)',
+                        style: const TextStyle(color: Colors.white),
+                      ),
+                      const Spacer(),
+                      TextButton.icon(
+                        icon: const Icon(Icons.clear, size: 16),
+                        label: const Text('Limpiar selección'),
+                        onPressed: () {
+                          context.read<ZoneEditorBloc>().add(ClearTileSelection());
+                        },
+                        style: TextButton.styleFrom(
+                          foregroundColor: Colors.white70,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
 
               // Barra de modo actual
               Container(
@@ -256,11 +314,138 @@ class _ZoneEditorView extends StatelessWidget {
           ),
         ],
       ),
-      bottomSheet: state.hasSelectedTile && state.editMode == 'select'
-          ? _buildPropertiesPanel(context, state)
-          : null,
+      bottomSheet: _buildBottomPanel(context, state),
     );
 
+  }
+  Widget _buildBottomPanel(BuildContext context, ZoneEditorLoaded state) {
+    // Si estamos en modo selección múltiple con tiles seleccionados
+    if (state.isMultiSelectMode && state.selectedTiles.isNotEmpty) {
+      return _buildMultiSelectionPanel(context, state);
+    }
+    // Si tenemos un solo tile seleccionado (modo original)
+    else if (state.hasSelectedTile && state.selectedTile != null && state.editMode == 'select') {
+      return _buildPropertiesPanel(context, state);
+    }
+    // Sin panel
+    return const SizedBox.shrink();
+  }
+
+  // Nuevo panel para selección múltiple
+  Widget _buildMultiSelectionPanel(BuildContext context, ZoneEditorLoaded state) {
+    final selectedCount = state.selectedTiles.length;
+
+    // Verificar si todos los tiles son del mismo tipo
+    bool allSameType = true;
+    String? elementType;
+
+    if (selectedCount > 0) {
+      elementType = state.selectedTiles.first.type?.id;
+      allSameType = state.selectedTiles.every((tile) => tile.type?.id == elementType);
+    }
+
+    return Container(
+      padding: const EdgeInsets.all(16.0),
+      decoration: BoxDecoration(
+        color: Color(0xFF333333),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.3),
+            blurRadius: 4.0,
+            offset: const Offset(0, -2),
+          ),
+        ],
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'Selección múltiple ($selectedCount tiles)',
+                style: const TextStyle(
+                  fontSize: 18.0,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                ),
+              ),
+              IconButton(
+                icon: const Icon(Icons.close, color: Colors.white),
+                onPressed: () {
+                  context.read<ZoneEditorBloc>().add(ClearTileSelection());
+                },
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          // Mostrar información sobre la selección
+          if (selectedCount > 0 && allSameType)
+            Row(
+              children: [
+                Icon(
+                  state.selectedTiles.first.type?.icon ?? Icons.help_outline,
+                  color: state.selectedTiles.first.type?.color ?? Colors.grey,
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  'Tipo: ${state.selectedTiles.first.type?.name ?? "Desconocido"}',
+                  style: const TextStyle(color: Colors.white70),
+                ),
+              ],
+            ),
+
+          if (selectedCount > 0 && !allSameType)
+            const Text(
+              'La selección contiene diferentes tipos de elementos',
+              style: TextStyle(color: Colors.red),
+            ),
+
+          const SizedBox(height: 16),
+
+          // Botones de acción para selección múltiple
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            children: [
+              ElevatedButton.icon(
+                icon: const Icon(Icons.merge_type),
+                label: const Text('Fusionar'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: allSameType && selectedCount > 1
+                      ? Color(0xFF00BFA5)
+                      : Colors.grey,
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                ),
+                onPressed: allSameType && selectedCount > 1
+                    ? () {
+                  context.read<ZoneEditorBloc>().add(MergeSelectedTiles());
+                }
+                    : null,
+              ),
+              ElevatedButton.icon(
+                icon: const Icon(Icons.delete),
+                label: const Text('Eliminar selección'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.red.shade700,
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                ),
+                onPressed: () {
+                  // Eliminar todos los tiles seleccionados
+                  Board updatedBoard = state.board;
+                  for (final tile in state.selectedTiles) {
+                    updatedBoard = updatedBoard.removeElement(tile.x, tile.y);
+                  }
+
+                  context.read<ZoneEditorBloc>().add(BoardUpdated(updatedBoard));
+                  context.read<ZoneEditorBloc>().add(ClearTileSelection());
+                },
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
   }
 
   Widget _buildModeButton(
@@ -350,8 +535,8 @@ class _ZoneEditorView extends StatelessWidget {
           ),
           Row(
             children: [
-              Text(
-                'Rotación:',
+              const Text(
+                'Rotation:',
                 style: TextStyle(color: Colors.white70),
               ),
               const Spacer(),

@@ -26,6 +26,10 @@ class ZoneEditorLoaded extends ZoneEditorState {
 
   final String editMode;
 
+  final List<Tile> selectedTiles;
+
+  final bool isMultiSelectMode;
+
   const ZoneEditorLoaded({
     required this.board,
     required this.availableElements,
@@ -34,6 +38,8 @@ class ZoneEditorLoaded extends ZoneEditorState {
     this.hasSelectedTile = false,
     this.selectedTile,
     this.editMode = 'place',
+    this.selectedTiles = const [],
+    this.isMultiSelectMode = false,
   });
 
   ZoneEditorLoaded copyWith({
@@ -44,6 +50,8 @@ class ZoneEditorLoaded extends ZoneEditorState {
     bool? hasSelectedTile,
     Tile? selectedTile,
     String? editMode,
+    List<Tile>? selectedTiles,
+    bool? isMultiSelectMode,
   }) {
     return ZoneEditorLoaded(
       board: board ?? this.board,
@@ -53,6 +61,8 @@ class ZoneEditorLoaded extends ZoneEditorState {
       hasSelectedTile: hasSelectedTile ?? this.hasSelectedTile,
       selectedTile: selectedTile ?? this.selectedTile,
       editMode: editMode ?? this.editMode,
+      selectedTiles: selectedTiles ?? this.selectedTiles,
+      isMultiSelectMode: isMultiSelectMode ?? this.isMultiSelectMode,
     );
   }
 
@@ -60,6 +70,11 @@ class ZoneEditorLoaded extends ZoneEditorState {
 
   List<Tile> get tiles => board.tiles;
 
+  bool isTileSelected(int x, int y) {
+    return selectedTiles.any((tile) => tile.x == x && tile.y == y);
+  }
+
+  bool get hasMultipleSelection => selectedTiles.length > 1;
   @override
   List<Object?> get props => [
         board,
@@ -69,6 +84,8 @@ class ZoneEditorLoaded extends ZoneEditorState {
         hasSelectedTile,
         selectedTile,
         editMode,
+        selectedTiles,
+        isMultiSelectMode,
       ];
 }
 

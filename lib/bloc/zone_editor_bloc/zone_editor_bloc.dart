@@ -36,6 +36,12 @@ class ZoneEditorBloc extends Bloc<ZoneEditorEvent, ZoneEditorState> {
     on<RedoLastAction>(_onRedoLastAction);
     on<DragEnded>(_onDragEnded);
     on<EraseDragg>(_onEraseDragg);
+    on<ToggleMultiSelectMode>(_onToggleMultiSelectMode);
+    on<AddTileToSelection>(_onAddTileToSelection);
+    on<RemoveTileFromSelection>(_onRemoveTileFromSelection);
+    on<ClearTileSelection>(_onClearTileSelection);
+    on<MergeSelectedTiles>(_onMergeSelectedTiles);
+    on<BoardUpdated>(_onBoardUpdated);
   }
 
   List<ElementType> get _predefinedElements => [
@@ -122,6 +128,187 @@ class ZoneEditorBloc extends Bloc<ZoneEditorEvent, ZoneEditorState> {
     }
   }
 
+
+  void _onAddTileToSelection(AddTileToSelection event, Emitter<ZoneEditorState> emit) {
+    if (state is ZoneEditorLoaded) {
+      final currentState = state as ZoneEditorLoaded;
+
+      // Comprobar si ya está seleccionado
+      if (!currentState.isTileSelected(event.tile.x, event.tile.y)) {
+        if (_canAddToSelection(currentState, event.tile)) {
+          emit(currentState.copyWith(
+            selectedTiles: [...currentState.selectedTiles, event.tile],
+          ));
+        } else {
+          emit(const ZoneEditorSnackError('Solo puedes seleccionar tiles adyacentes'));
+          emit(currentState);
+        }
+      }
+    }
+  }
+
+
+  void _onToggleMultiSelectMode(ToggleMultiSelectMode event, Emitter<ZoneEditorState> emit) {
+    if(state is ZoneEditorLoaded){
+     final currentState = state as ZoneEditorLoaded;
+     if (!event.enabled){
+       emit(currentState.copyWith(
+         isMultiSelectMode: false,
+         selectedTiles: [],
+       ));
+     }else{
+      if(currentState.hasSelectedTile && currentState.selectedTile != null){
+        emit(currentState.copyWith(
+          isMultiSelectMode: true,
+          selectedTiles: [currentState.selectedTile!],
+        ));
+      }else{
+        emit(currentState.copyWith(isMultiSelectMode: true));
+      }
+     }
+    }
+  }
+  void _onRemoveTileFromSelection(RemoveTileFromSelection event, Emitter<ZoneEditorState> emit) {
+    if (state is ZoneEditorLoaded) {
+      final currentState = state as ZoneEditorLoaded;
+
+      List<Tile> updatedSelection = List.from(currentState.selectedTiles)
+        ..removeWhere((t) => t.x == event.tile.x && t.y == event.tile.y);
+
+      emit(currentState.copyWith(
+        selectedTiles: updatedSelection,
+        // Si no quedan tiles seleccionados, desactivamos el modo multiselección
+        isMultiSelectMode: updatedSelection.isNotEmpty,
+      ));
+    }
+  }
+
+  void _onClearTileSelection(ClearTileSelection event, Emitter<ZoneEditorState> emit) {
+    if (state is ZoneEditorLoaded) {
+      final currentState = state as ZoneEditorLoaded;
+      emit(currentState.copyWith(
+        selectedTiles: [],
+        isMultiSelectMode: false,
+        selectedTile: null,
+        hasSelectedTile: false,
+      ));
+    }
+  }
+
+  void _onMergeSelectedTiles(MergeSelectedTiles event, Emitter<ZoneEditorState> emit) {
+    if (state is ZoneEditorLoaded) {
+      final currentState = state as ZoneEditorLoaded;
+
+      if (currentState.selectedTiles.length <= 1) {
+        // Necesitamos al menos 2 tiles para fusionar
+        emit(const ZoneEditorSnackError('Selecciona al menos 2 tiles para fusionar'));
+        emit(currentState);
+        return;
+      }
+
+      // Comprobar que todos los tiles seleccionados son del mismo tipo
+      final firstType = currentState.selectedTiles.first.type;
+      final allSameType = currentState.selectedTiles
+          .every((tile) => tile.type?.id == firstType?.id);
+
+      if (!allSameType || firstType == null) {
+        emit(const ZoneEditorSnackError('Solo puedes fusionar tiles del mismo tipo'));
+        emit(currentState);
+        return;
+      }
+
+      // Comprobamos que todos los tiles son adyacentes formando un grupo conexo
+      if (!_areAllTilesConnected(currentState.selectedTiles)) {
+        emit(const ZoneEditorSnackError('Todos los tiles deben formar un grupo conexo'));
+        emit(currentState);
+        return;
+      }
+
+
+
+      final String mergedId = 'merged_${DateTime.now().millisecondsSinceEpoch}';
+
+      final originTile = currentState.selectedTiles.first;
+
+
+      Board updatedBoard = currentState.board;
+
+      for (final tile in currentState.selectedTiles) {
+
+        updatedBoard = updatedBoard.removeElement(tile.x, tile.y);
+
+        // Luego colocamos un nuevo elemento con el ID común
+        final newTile = tile.asPartOfElement(
+          elementType: firstType,
+          elementId: mergedId,
+          originX: originTile.x,
+          originY: originTile.y,
+          rotation: originTile.rotation,
+          additionalProperties: {
+            ...tile.properties ?? {},
+            'isMerged': true,
+            'mergedGroupId': mergedId,
+          },
+        );
+
+        updatedBoard = updatedBoard.updateTile(newTile);
+      }
+
+      // Guardar en el historial y emitir el nuevo estado
+      _saveToHistory(updatedBoard);
+      emit(const ZoneEditorSnackError('Tiles fusionados correctamente'));
+
+      emit(currentState.copyWith(
+        board: updatedBoard,
+        selectedTiles: [], // Limpiamos la selección
+        isMultiSelectMode: false,
+        selectedTile: null,
+        hasSelectedTile: false,
+      ));
+
+
+    }
+  }
+
+  void _onBoardUpdated(BoardUpdated event, Emitter<ZoneEditorState> emit) {
+    if (state is ZoneEditorLoaded) {
+      final currentState = state as ZoneEditorLoaded;
+      _saveToHistory(event.board);
+      emit(currentState.copyWith(board: event.board));
+    }
+  }
+
+  bool _areAllTilesConnected(List<Tile> tiles) {
+    if (tiles.isEmpty) return true;
+    if (tiles.length == 1) return true;
+
+
+    Set<String> visited = {};
+    List<Tile> queue = [tiles.first];
+
+    while (queue.isNotEmpty) {
+      final current = queue.removeAt(0);
+      final key = '${current.x},${current.y}';
+
+      if (visited.contains(key)) continue;
+      visited.add(key);
+
+      // Añadir a la cola los vecinos que estén en la lista de tiles
+      for (final tile in tiles) {
+        // Si el tile es adyacente al actual y no ha sido visitado
+        if (!visited.contains('${tile.x},${tile.y}') &&
+            ((tile.x == current.x && (tile.y == current.y + 1 || tile.y == current.y - 1)) ||
+                (tile.y == current.y && (tile.x == current.x + 1 || tile.x == current.x - 1)))) {
+          queue.add(tile);
+        }
+      }
+    }
+
+    // Si hemos visitado todos los tiles, entonces están conectados
+    return visited.length == tiles.length;
+  }
+
+
   void _onElementTypeSelected(ElementTypeSelected event, Emitter<ZoneEditorState> emit) {
     if (state is ZoneEditorLoaded) {
       final currentState = state as ZoneEditorLoaded;
@@ -176,11 +363,39 @@ class ZoneEditorBloc extends Bloc<ZoneEditorEvent, ZoneEditorState> {
         case 'select':
           final tile = board.getTile(event.x, event.y);
           if (tile != null && tile.isNotEmpty) {
-            emit(currentState.copyWith(selectedTile: tile, hasSelectedTile: true));
-          } else {
-            emit(currentState.copyWith(selectedTile: null, hasSelectedTile: false));
+            if (currentState.isMultiSelectMode){
+              if (currentState.isTileSelected(event.x, event.y)) {
+                List<Tile> updateSelection =  List.from(currentState.selectedTiles)..removeWhere((t) => t.x == event.x && t.y == event.y);
+
+                emit(currentState.copyWith(selectedTiles: updateSelection, isMultiSelectMode: updateSelection.isNotEmpty));
+             }else{
+              if (_canAddToSelection(currentState, tile)){
+                emit(currentState.copyWith(selectedTiles:[...currentState.selectedTiles , tile] ));
+              }else{
+                emit(const ZoneEditorSnackError('No se puede agregar a la selección'));
+                emit(currentState);
+              }
+              }
+            }else{
+              emit(
+                currentState.copyWith(
+                  selectedTile: tile,
+                  hasSelectedTile: true,
+                  selectedTiles: [tile],
+                  isMultiSelectMode: true,
+                ),
+              );
+            }
+          }else{
+            emit(currentState.copyWith(
+              selectedTile: null,
+              hasSelectedTile: false,
+              selectedTiles: [],
+              isMultiSelectMode: false,
+            ));
           }
           break;
+
 
         case 'move':
           if (currentState.hasSelectedTile && currentState.selectedTile != null) {
@@ -205,6 +420,20 @@ class ZoneEditorBloc extends Bloc<ZoneEditorEvent, ZoneEditorState> {
           break;
       }
     }
+  }
+
+
+
+  bool _canAddToSelection(ZoneEditorLoaded state, Tile newTile) {
+
+    if (state.selectedTiles.isEmpty) return true;
+
+    if (state.selectedTiles.first.type?.id != newTile.type?.id) return false;
+
+    return state.selectedTiles.any((tile) =>
+    (tile.x == newTile.x && (tile.y == newTile.y + 1 || tile.y == newTile.y - 1)) ||
+        (tile.y == newTile.y && (tile.x == newTile.x + 1 || tile.x == newTile.x - 1))
+    );
   }
 
   void _saveToHistory(Board board) {

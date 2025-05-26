@@ -46,13 +46,13 @@ class Tile extends Equatable{
     required int originY,
     int rotation = 0,
     Map<String, dynamic>? additionalProperties,
+    bool merged = false,
+    String? mergedGroupId,
   }) {
     final int elementX = x - originX;
     final int elementY = y - originY;
 
-
     final bool isOrigin = (x == originX && y == originY);
-
 
     final Map<String, dynamic> newProperties = {
       'rotation': rotation,
@@ -61,6 +61,9 @@ class Tile extends Equatable{
       'elementY': elementY,
       'originX': originX,
       'originY': originY,
+      // Añadir propiedades de fusión si es necesario
+      if (merged) 'isMerged': true,
+      if (mergedGroupId != null) 'mergedGroupId': mergedGroupId,
       ...additionalProperties ?? {},
     };
 
@@ -72,6 +75,7 @@ class Tile extends Equatable{
       properties: newProperties,
     );
   }
+
 
   bool get isEmpty => type == null;
 
@@ -89,8 +93,22 @@ class Tile extends Equatable{
 
   int get elementY => getProperty<int>('elementY', 0);
 
+  bool get isMerged => getProperty<bool>('isMerged', false);
+
+  String? get mergedGroupId => getProperty<String>('mergedGroupId','');
+
+
+  bool isMergedWith(Tile other) {
+    if (!isMerged || other.mergedGroupId == null) return false;
+    return mergedGroupId == other.mergedGroupId;
+  }
+
   T getProperty<T>(String key, T defaultValue) {
-    return properties?[key] as T? ?? defaultValue;
+    final value = properties?[key];
+    if (value is T) {
+      return value;
+    }
+    return defaultValue;
   }
 
   @override

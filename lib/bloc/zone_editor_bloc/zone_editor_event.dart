@@ -25,7 +25,62 @@ class ElementTypeSelected extends ZoneEditorEvent {
   List<Object?> get props => [elementType];
 }
 
+
+
+//multiselection events
+class BoardUpdated extends ZoneEditorEvent {
+  final Board board;
+
+  const BoardUpdated(this.board);
+
+  @override
+  List<Object?> get props => [board];
+}
+
+class ToggleMultiSelectMode extends ZoneEditorEvent {
+
+  final bool enabled;
+
+  const ToggleMultiSelectMode(this.enabled);
+
+  @override
+  List<Object?> get props => [enabled];
+
+}
+
+class AddTileToSelection extends ZoneEditorEvent {
+  final Tile tile;
+
+  const AddTileToSelection(this.tile);
+
+  @override
+  List<Object?> get props => [tile];
+
+}
+
+
+class RemoveTileFromSelection extends ZoneEditorEvent {
+  final Tile tile;
+
+  const RemoveTileFromSelection(this.tile);
+
+  @override
+  List<Object?> get props => [tile];
+}
+
+class ClearTileSelection extends ZoneEditorEvent {}
+
+class MergeSelectedTiles extends ZoneEditorEvent {}
+
+
+
+
 //Eventos de interactuación del mapa de zonas
+
+
+
+
+
 
 class TileTapped extends ZoneEditorEvent {
   final int x;

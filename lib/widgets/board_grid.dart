@@ -34,6 +34,10 @@ class BoardGrid extends StatefulWidget {
   /// Callback cuando se hace clic derecho
   final VoidCallback? onRightClick;
 
+  final List<Tile> selectedTiles;
+
+  final bool isMultiSelectMode;
+
   const BoardGrid({
     Key? key,
     required this.board,
@@ -46,6 +50,8 @@ class BoardGrid extends StatefulWidget {
     this.showCoordinates = false,
     this.selectedElement,
     this.onRightClick,
+    this.selectedTiles = const [], // Valor por defecto
+    this.isMultiSelectMode = false,
   }) : super(key: key);
 
   @override
@@ -106,7 +112,9 @@ class _BoardGridState extends State<BoardGrid> {
               ...widget.board.tiles.map((tile) => _buildTileWidget(context, tile)),
 
               // Contorno de selección para el tile seleccionado
-              if (widget.selectedTile != null && widget.selectedTile!.isNotEmpty)
+              if (widget.selectedTile != null &&
+                  widget.selectedTile!.isNotEmpty &&
+                  !widget.isMultiSelectMode)
                 Positioned(
                   left: (widget.selectedTile!.x * widget.board.config.tileSize).toDouble(),
                   top: (widget.selectedTile!.y * widget.board.config.tileSize).toDouble(),
@@ -118,10 +126,22 @@ class _BoardGridState extends State<BoardGrid> {
                     ),
                   ),
                 ),
+              if (widget.isMultiSelectMode)
+                ...widget.selectedTiles.map((tile) => Positioned(
+                      left: (tile.x * widget.board.config.tileSize).toDouble(),
+                      top: (tile.y * widget.board.config.tileSize).toDouble(),
+                      width: widget.board.config.tileSize,
+                      height: widget.board.config.tileSize,
+                      child: Container(
+                        decoration: BoxDecoration(
+                          border: Border.all(color: Colors.lightBlue, width: 2),
+                          color: Colors.blue.withOpacity(0.2),
+                        ),
+                      ),
+                    )),
 
               // Overlay del elemento a colocar
-              if (showOverlay)
-                _buildPlacementOverlay(),
+              if (showOverlay) _buildPlacementOverlay(),
             ],
           ),
         ),
@@ -197,30 +217,33 @@ class _BoardGridState extends State<BoardGrid> {
         onSecondaryTap: widget.onRightClick,
         onPanUpdate: widget.onTileDrag != null
             ? (details) {
-          // Calculamos la celda sobre la que estamos arrastrando
-          final RenderBox renderBox = context.findRenderObject() as RenderBox;
-          final Offset localOffset = renderBox.globalToLocal(details.globalPosition);
+                // Calculamos la celda sobre la que estamos arrastrando
+                final RenderBox renderBox = context.findRenderObject() as RenderBox;
+                final Offset localOffset = renderBox.globalToLocal(details.globalPosition);
 
-          // Calcular la posición de la celda
-          final int gridX = (localOffset.dx / widget.board.config.tileSize).floor();
-          final int gridY = (localOffset.dy / widget.board.config.tileSize).floor();
+                // Calcular la posición de la celda
+                final int gridX = (localOffset.dx / widget.board.config.tileSize).floor();
+                final int gridY = (localOffset.dy / widget.board.config.tileSize).floor();
 
-          // Verificar que estamos dentro del tablero
-          if (gridX >= 0 && gridX < widget.board.config.columns &&
-              gridY >= 0 && gridY < widget.board.config.rows) {
-            if(widget.mode == 'erase' && widget.onEraseDrag != null){
-              widget.onEraseDrag!(gridX, gridY);
-            }else if(widget.onTileDrag != null){
-              widget.onTileDrag!(gridX, gridY);
-            }
-          }
-        }
+                // Verificar que estamos dentro del tablero
+                if (gridX >= 0 &&
+                    gridX < widget.board.config.columns &&
+                    gridY >= 0 &&
+                    gridY < widget.board.config.rows) {
+                  if (widget.mode == 'erase' && widget.onEraseDrag != null) {
+                    widget.onEraseDrag!(gridX, gridY);
+                  } else if (widget.onTileDrag != null) {
+                    widget.onTileDrag!(gridX, gridY);
+                  }
+                }
+              }
             : null,
         onPanEnd: widget.onDragEnd != null ? (details) => widget.onDragEnd!() : null,
         child: _TileContent(
           tile: tile,
           size: size,
           showCoordinates: widget.showCoordinates,
+          allTiles: widget.board.tiles,
         ),
       ),
     );
@@ -231,15 +254,69 @@ class _TileContent extends StatelessWidget {
   final Tile tile;
   final double size;
   final bool showCoordinates;
+  final List<Tile> allTiles;
 
   const _TileContent({
     required this.tile,
     required this.size,
     required this.showCoordinates,
+    required this.allTiles,
   });
 
   @override
   Widget build(BuildContext context) {
+    final bool isMerged = tile.getProperty<bool>('isMerged', false);
+    final String mergedGroupId = tile.getProperty<String>('mergedGroupId', '');
+
+    Border? tileBorder;
+    if(isMerged && mergedGroupId != null){
+      bool hasTopNeighbor = false;
+      bool hasBottomNeighbor = false;
+      bool hasLeftNeighbor = false;
+      bool hasRightNeighbor = false;
+
+      for( final neighbor in allTiles){
+        final neighBorMergedId = neighbor.getProperty<String>('mergedGroupId', '');
+        if(neighBorMergedId == mergedGroupId) {
+          // Arriba
+          if (neighbor.x == tile.x && neighbor.y == tile.y - 1) {
+            hasTopNeighbor = true;
+          }
+          // Derecha
+          else if (neighbor.x == tile.x + 1 && neighbor.y == tile.y) {
+            hasRightNeighbor = true;
+          }
+          // Abajo
+          else if (neighbor.x == tile.x && neighbor.y == tile.y + 1) {
+            hasBottomNeighbor = true;
+          }
+          // Izquierda
+          else if (neighbor.x == tile.x - 1 && neighbor.y == tile.y) {
+            hasLeftNeighbor = true;
+          }
+        }
+      }
+      tileBorder = Border(
+        top: hasTopNeighbor
+            ? BorderSide.none
+            : BorderSide(color: Colors.grey.shade300, width: 0.5),
+        right: hasRightNeighbor
+            ? BorderSide.none
+            : BorderSide(color: Colors.grey.shade300, width: 0.5),
+        bottom: hasBottomNeighbor
+            ? BorderSide.none
+            : BorderSide(color: Colors.grey.shade300, width: 0.5),
+        left: hasLeftNeighbor
+            ? BorderSide.none
+            : BorderSide(color: Colors.grey.shade300, width: 0.5),
+      );
+    }else {
+      tileBorder = Border.all(
+        color: Colors.grey.shade300,
+        width: 0.5,
+      );
+    }
+
     return Container(
       decoration: BoxDecoration(
         color: _getTileColor(),

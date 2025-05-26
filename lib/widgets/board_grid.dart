@@ -267,9 +267,9 @@ class _TileContent extends StatelessWidget {
   Widget build(BuildContext context) {
     final bool isMerged = tile.getProperty<bool>('isMerged', false);
     final String mergedGroupId = tile.getProperty<String>('mergedGroupId', '');
-
     Border? tileBorder;
-    if(isMerged && mergedGroupId != null){
+    if(isMerged){
+
       bool hasTopNeighbor = false;
       bool hasBottomNeighbor = false;
       bool hasLeftNeighbor = false;
@@ -320,10 +320,7 @@ class _TileContent extends StatelessWidget {
     return Container(
       decoration: BoxDecoration(
         color: _getTileColor(),
-        border: Border.all(
-          color: Colors.grey.shade300,
-          width: 0.5,
-        ),
+        border: tileBorder,
       ),
       child: Stack(
         children: [

@@ -2,7 +2,6 @@ import 'dart:async';
 
 import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
-import 'package:table_game/bloc/zone_editor_bloc/zone_editor_bloc.dart';
 
 import '../../models/board_config.dart';
 

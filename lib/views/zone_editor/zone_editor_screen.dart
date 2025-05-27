@@ -1,4 +1,3 @@
-// lib/views/zone_editor_screen.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:table_game/views/zone_editor/zone_editor_content.dart';
@@ -13,17 +12,44 @@ class ZoneEditorScreen extends StatelessWidget {
     return BlocConsumer<ZoneEditorBloc, ZoneEditorState>(
       listener: (context, state) {
         if (state is ZoneEditorSnackError) {
+          // Cierra el SnackBar actual si existe
+          ScaffoldMessenger.of(context).hideCurrentSnackBar();
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text(state.message),
+              content: GestureDetector(
+                onTap: () => ScaffoldMessenger.of(context).hideCurrentSnackBar(),
+                child: Text(state.message),
+              ),
               backgroundColor: Colors.red,
+              dismissDirection: DismissDirection.horizontal,
+              behavior: SnackBarBehavior.floating,
+              duration: const Duration(seconds: 4),
             ),
           );
         } else if (state is ZoneEditorSucces) {
+          ScaffoldMessenger.of(context).hideCurrentSnackBar();
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text(state.message),
+              content: GestureDetector(
+                onTap: () => ScaffoldMessenger.of(context).hideCurrentSnackBar(),
+                child: Text(state.message),
+              ),
               backgroundColor: Colors.green,
+              dismissDirection: DismissDirection.horizontal,
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+        }else if(state is ZoneEditorSnackSuccess){
+          ScaffoldMessenger.of(context).hideCurrentSnackBar();
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: GestureDetector(
+                onTap: () => ScaffoldMessenger.of(context).hideCurrentSnackBar(),
+                child: Text(state.message),
+              ),
+              backgroundColor: Colors.green,
+              dismissDirection: DismissDirection.horizontal,
+              behavior: SnackBarBehavior.floating,
             ),
           );
         }

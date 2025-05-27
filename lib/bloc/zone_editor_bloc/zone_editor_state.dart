@@ -243,6 +243,15 @@ class ZoneEditorSucces extends ZoneEditorState {
   List<Object?> get props => [message, previousState];
 }
 
+class ZoneEditorSnackSuccess extends ZoneEditorState {
+  final String message;
+
+  const ZoneEditorSnackSuccess(this.message);
+
+  @override
+  List<Object?> get props => [message];
+}
+
 
 class ZoneEditorSnackError extends ZoneEditorState {
   final String message;

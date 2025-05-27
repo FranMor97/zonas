@@ -2,21 +2,15 @@
 import 'package:flutter/material.dart';
 import 'package:table_game/models/board_components/element_type.dart';
 
-/// Widget que muestra una paleta horizontal de elementos disponibles para seleccionar.
 class ElementPalette extends StatelessWidget {
-  /// Lista de elementos disponibles
   final List<ElementType> elements;
 
-  /// Elemento actualmente seleccionado
   final ElementType? selectedElement;
 
-  /// Si el modo borrador está activado
   final bool eraserMode;
 
-  /// Callback cuando se selecciona un elemento
   final Function(ElementType) onElementSelected;
 
-  /// Callback cuando se activa/desactiva el modo borrador
   final Function(bool) onEraserToggled;
 
   const ElementPalette({
@@ -87,14 +81,12 @@ class ElementPalette extends StatelessWidget {
     );
   }
 
-  /// Construye un item de la paleta (elemento o borrador)
   Widget _buildElementItem(
       BuildContext context,
       ElementType? element, {
         bool isEraser = false,
         bool isSelected = false,
       }) {
-    // Color y texto para el elemento
     final Color itemColor = isEraser
         ? Colors.red.shade400
         : element?.color ?? Colors.grey;
@@ -107,7 +99,6 @@ class ElementPalette extends StatelessWidget {
         ? Icons.delete_outline
         : element?.icon ?? Icons.help_outline;
 
-    // Tamaño del elemento (solo para visualización)
     String sizeText = '';
     if (!isEraser && element != null) {
       final Size size = element.defaultSize;

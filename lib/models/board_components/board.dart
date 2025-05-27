@@ -65,12 +65,6 @@ class Board extends Equatable {
     return true;
   }
 
-  String _generateElementId() {
-    return 'elem_${_elementCounter + 1}';
-  }
-
-
-
   Board rotateElement(
       String elementId,
       bool clockwise,

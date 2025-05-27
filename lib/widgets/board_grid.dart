@@ -1,42 +1,25 @@
-// lib/widgets/board_grid.dart
+
 import 'package:flutter/material.dart';
-import '../models/board_components/board.dart';
-import '../models/board_components/tile.dart';
-import '../models/board_components/element_type.dart';
+import 'package:table_game/bloc/zone_editor_bloc/zone_editor_bloc.dart';
+import 'package:table_game/models/board_components/board.dart';
+import 'package:table_game/models/board_components/element_type.dart';
+import 'package:table_game/models/board_components/tile.dart';
 
-/// Widget que muestra el tablero de juego como una cuadrícula interactiva.
 class BoardGrid extends StatefulWidget {
-  /// El tablero a mostrar
   final Board board;
-
-  /// Callback cuando se hace tap en una celda
   final Function(int x, int y) onTileTap;
-
-  /// Callback cuando se arrastra sobre una celda
   final Function(int x, int y)? onTileDrag;
-
   final Function(int x, int y)? onEraseDrag;
-
   final Function()? onDragEnd;
-
-  /// La celda actualmente seleccionada (si hay)
   final Tile? selectedTile;
-
-  /// Si es true, muestra coordenadas en cada celda (útil para debugging)
   final bool showCoordinates;
-
-  /// Modo actual del editor
   final String mode;
-
-  /// Elemento seleccionado para colocar
   final ElementType? selectedElement;
-
-  /// Callback cuando se hace clic derecho
   final VoidCallback? onRightClick;
-
   final List<Tile> selectedTiles;
-
   final bool isMultiSelectMode;
+  // Nuevo parámetro para el estado completo
+  final ZoneEditorLoaded? editorState;
 
   const BoardGrid({
     Key? key,
@@ -50,8 +33,9 @@ class BoardGrid extends StatefulWidget {
     this.showCoordinates = false,
     this.selectedElement,
     this.onRightClick,
-    this.selectedTiles = const [], // Valor por defecto
+    this.selectedTiles = const [],
     this.isMultiSelectMode = false,
+    this.editorState,
   }) : super(key: key);
 
   @override
@@ -64,11 +48,9 @@ class _BoardGridState extends State<BoardGrid> {
 
   @override
   Widget build(BuildContext context) {
-    // Calcular dimensiones totales del tablero
     final double boardWidth = widget.board.config.columns * widget.board.config.tileSize;
     final double boardHeight = widget.board.config.rows * widget.board.config.tileSize;
 
-    // Determinar si mostrar el overlay
     final showOverlay = widget.mode == 'place' &&
         widget.selectedElement != null &&
         !widget.selectedElement!.isSelectionTool &&
@@ -111,34 +93,8 @@ class _BoardGridState extends State<BoardGrid> {
               // Celdas del tablero
               ...widget.board.tiles.map((tile) => _buildTileWidget(context, tile)),
 
-              // Contorno de selección para el tile seleccionado
-              if (widget.selectedTile != null &&
-                  widget.selectedTile!.isNotEmpty &&
-                  !widget.isMultiSelectMode)
-                Positioned(
-                  left: (widget.selectedTile!.x * widget.board.config.tileSize).toDouble(),
-                  top: (widget.selectedTile!.y * widget.board.config.tileSize).toDouble(),
-                  width: widget.board.config.tileSize,
-                  height: widget.board.config.tileSize,
-                  child: Container(
-                    decoration: BoxDecoration(
-                      border: Border.all(color: Colors.blue, width: 2),
-                    ),
-                  ),
-                ),
-              if (widget.isMultiSelectMode)
-                ...widget.selectedTiles.map((tile) => Positioned(
-                      left: (tile.x * widget.board.config.tileSize).toDouble(),
-                      top: (tile.y * widget.board.config.tileSize).toDouble(),
-                      width: widget.board.config.tileSize,
-                      height: widget.board.config.tileSize,
-                      child: Container(
-                        decoration: BoxDecoration(
-                          border: Border.all(color: Colors.lightBlue, width: 2),
-                          color: Colors.blue.withOpacity(0.2),
-                        ),
-                      ),
-                    )),
+              // Contornos de selección mejorados
+              ..._buildSelectionOverlays(),
 
               // Overlay del elemento a colocar
               if (showOverlay) _buildPlacementOverlay(),
@@ -149,23 +105,167 @@ class _BoardGridState extends State<BoardGrid> {
     );
   }
 
+  // Método mejorado para construir overlays de selección
+  List<Widget> _buildSelectionOverlays() {
+    List<Widget> overlays = [];
+
+    if (widget.editorState != null) {
+      final state = widget.editorState!;
+
+      // Selección individual con soporte para elementos fusionados
+      if (state.hasSelectedTile && state.selectedTile != null && !state.isMultiSelectMode) {
+        final selectedTile = state.selectedTile!;
+
+        if (selectedTile.isMerged && selectedTile.mergedGroupId != null) {
+          // Mostrar selección para todo el grupo fusionado
+          final groupTiles = state.getMergedElementTiles(selectedTile.mergedGroupId!);
+          for (final tile in groupTiles) {
+            overlays.add(_buildSelectionOverlay(tile, Colors.blue, isMergedGroup: true));
+          }
+        } else {
+          // Selección individual normal
+          overlays.add(_buildSelectionOverlay(selectedTile, Colors.blue));
+        }
+      }
+
+      // Selección múltiple
+      if (state.isMultiSelectMode && state.selectedTiles.isNotEmpty) {
+        // Agrupar tiles por grupos fusionados
+        Map<String, List<Tile>> mergedGroups = {};
+        List<Tile> individualTiles = [];
+
+        for (final tile in state.selectedTiles) {
+          if (tile.isMerged && tile.mergedGroupId != null) {
+            if (!mergedGroups.containsKey(tile.mergedGroupId)) {
+              mergedGroups[tile.mergedGroupId!] = [];
+            }
+            mergedGroups[tile.mergedGroupId!]!.add(tile);
+          } else {
+            individualTiles.add(tile);
+          }
+        }
+
+        // Overlays para grupos fusionados
+        for (final group in mergedGroups.values) {
+          for (final tile in group) {
+            overlays.add(_buildSelectionOverlay(
+              tile,
+              Colors.lightBlue,
+              isMergedGroup: true,
+              isMultiSelect: true,
+            ));
+          }
+        }
+
+        // Overlays para tiles individuales
+        for (final tile in individualTiles) {
+          overlays.add(_buildSelectionOverlay(
+            tile,
+            Colors.lightBlue,
+            isMultiSelect: true,
+          ));
+        }
+      }
+    }
+
+    return overlays;
+  }
+
+  Widget _buildSelectionOverlay(
+      Tile tile,
+      Color color, {
+        bool isMergedGroup = false,
+        bool isMultiSelect = false,
+      }) {
+    return Positioned(
+      left: (tile.x * widget.board.config.tileSize).toDouble(),
+      top: (tile.y * widget.board.config.tileSize).toDouble(),
+      width: widget.board.config.tileSize,
+      height: widget.board.config.tileSize,
+      child: Container(
+        decoration: BoxDecoration(
+          border: Border.all(
+            color: color,
+            width: isMergedGroup ? 3 : 2,
+          ),
+          color: isMultiSelect
+              ? color.withOpacity(0.2)
+              : Colors.transparent,
+        ),
+        child: isMergedGroup ? Container(
+          decoration: BoxDecoration(
+            color: color.withOpacity(0.1),
+          ),
+          child: Center(
+            child: Icon(
+              Icons.link,
+              color: color,
+              size: 12,
+            ),
+          ),
+        ) : null,
+      ),
+    );
+  }
+
+  Widget _buildTileWidget(BuildContext context, Tile tile) {
+    final double x = (tile.x * widget.board.config.tileSize).toDouble();
+    final double y = (tile.y * widget.board.config.tileSize).toDouble();
+    final double size = widget.board.config.tileSize;
+
+    return Positioned(
+      left: x,
+      top: y,
+      width: size,
+      height: size,
+      child: GestureDetector(
+        onTap: () => widget.onTileTap(tile.x, tile.y),
+        onSecondaryTap: widget.onRightClick,
+        onPanUpdate: widget.onTileDrag != null
+            ? (details) {
+          final RenderBox renderBox = context.findRenderObject() as RenderBox;
+          final Offset localOffset = renderBox.globalToLocal(details.globalPosition);
+
+          final int gridX = (localOffset.dx / widget.board.config.tileSize).floor();
+          final int gridY = (localOffset.dy / widget.board.config.tileSize).floor();
+
+          if (gridX >= 0 &&
+              gridX < widget.board.config.columns &&
+              gridY >= 0 &&
+              gridY < widget.board.config.rows) {
+            if (widget.mode == 'erase' && widget.onEraseDrag != null) {
+              widget.onEraseDrag!(gridX, gridY);
+            } else if (widget.onTileDrag != null) {
+              widget.onTileDrag!(gridX, gridY);
+            }
+          }
+        }
+            : null,
+        onPanEnd: widget.onDragEnd != null ? (details) => widget.onDragEnd!() : null,
+        child: _TileContent(
+          tile: tile,
+          size: size,
+          showCoordinates: widget.showCoordinates,
+          allTiles: widget.board.tiles,
+          editorState: widget.editorState,
+        ),
+      ),
+    );
+  }
+
   Widget _buildPlacementOverlay() {
     final elementType = widget.selectedElement!;
     final tileSize = widget.board.config.tileSize;
 
-    // Calcular el tamaño del elemento
     double width = elementType.defaultSize.width * tileSize;
     double height = elementType.defaultSize.height * tileSize;
 
-    // Calcular la posición ajustada a la grilla
     final gridX = (_localMousePosition!.dx / tileSize).floor();
     final gridY = (_localMousePosition!.dy / tileSize).floor();
 
-    // Posición en píxeles alineada a la grilla
     final alignedX = gridX * tileSize;
     final alignedY = gridY * tileSize;
 
-    // Verificar si la posición es válida
     final canPlace = widget.board.canPlaceElement(gridX, gridY, elementType);
 
     return Positioned(
@@ -197,125 +297,30 @@ class _BoardGridState extends State<BoardGrid> {
       ),
     );
   }
-
-  Widget _buildTileWidget(BuildContext context, Tile tile) {
-    // Posición del tile en pixels
-    final double x = (tile.x * widget.board.config.tileSize).toDouble();
-    final double y = (tile.y * widget.board.config.tileSize).toDouble();
-
-    // Tamaño de la celda
-    final double size = widget.board.config.tileSize;
-
-    // Widget base (detector de gestos)
-    return Positioned(
-      left: x,
-      top: y,
-      width: size,
-      height: size,
-      child: GestureDetector(
-        onTap: () => widget.onTileTap(tile.x, tile.y),
-        onSecondaryTap: widget.onRightClick,
-        onPanUpdate: widget.onTileDrag != null
-            ? (details) {
-                // Calculamos la celda sobre la que estamos arrastrando
-                final RenderBox renderBox = context.findRenderObject() as RenderBox;
-                final Offset localOffset = renderBox.globalToLocal(details.globalPosition);
-
-                // Calcular la posición de la celda
-                final int gridX = (localOffset.dx / widget.board.config.tileSize).floor();
-                final int gridY = (localOffset.dy / widget.board.config.tileSize).floor();
-
-                // Verificar que estamos dentro del tablero
-                if (gridX >= 0 &&
-                    gridX < widget.board.config.columns &&
-                    gridY >= 0 &&
-                    gridY < widget.board.config.rows) {
-                  if (widget.mode == 'erase' && widget.onEraseDrag != null) {
-                    widget.onEraseDrag!(gridX, gridY);
-                  } else if (widget.onTileDrag != null) {
-                    widget.onTileDrag!(gridX, gridY);
-                  }
-                }
-              }
-            : null,
-        onPanEnd: widget.onDragEnd != null ? (details) => widget.onDragEnd!() : null,
-        child: _TileContent(
-          tile: tile,
-          size: size,
-          showCoordinates: widget.showCoordinates,
-          allTiles: widget.board.tiles,
-        ),
-      ),
-    );
-  }
 }
 
+// Tile content mejorado
 class _TileContent extends StatelessWidget {
   final Tile tile;
   final double size;
   final bool showCoordinates;
   final List<Tile> allTiles;
+  final ZoneEditorLoaded? editorState;
 
   const _TileContent({
     required this.tile,
     required this.size,
     required this.showCoordinates,
     required this.allTiles,
+    this.editorState,
   });
 
   @override
   Widget build(BuildContext context) {
     final bool isMerged = tile.getProperty<bool>('isMerged', false);
     final String mergedGroupId = tile.getProperty<String>('mergedGroupId', '');
-    Border? tileBorder;
-    if(isMerged){
 
-      bool hasTopNeighbor = false;
-      bool hasBottomNeighbor = false;
-      bool hasLeftNeighbor = false;
-      bool hasRightNeighbor = false;
-
-      for( final neighbor in allTiles){
-        final neighBorMergedId = neighbor.getProperty<String>('mergedGroupId', '');
-        if(neighBorMergedId == mergedGroupId) {
-          // Arriba
-          if (neighbor.x == tile.x && neighbor.y == tile.y - 1) {
-            hasTopNeighbor = true;
-          }
-          // Derecha
-          else if (neighbor.x == tile.x + 1 && neighbor.y == tile.y) {
-            hasRightNeighbor = true;
-          }
-          // Abajo
-          else if (neighbor.x == tile.x && neighbor.y == tile.y + 1) {
-            hasBottomNeighbor = true;
-          }
-          // Izquierda
-          else if (neighbor.x == tile.x - 1 && neighbor.y == tile.y) {
-            hasLeftNeighbor = true;
-          }
-        }
-      }
-      tileBorder = Border(
-        top: hasTopNeighbor
-            ? BorderSide.none
-            : BorderSide(color: Colors.grey.shade300, width: 0.5),
-        right: hasRightNeighbor
-            ? BorderSide.none
-            : BorderSide(color: Colors.grey.shade300, width: 0.5),
-        bottom: hasBottomNeighbor
-            ? BorderSide.none
-            : BorderSide(color: Colors.grey.shade300, width: 0.5),
-        left: hasLeftNeighbor
-            ? BorderSide.none
-            : BorderSide(color: Colors.grey.shade300, width: 0.5),
-      );
-    }else {
-      tileBorder = Border.all(
-        color: Colors.grey.shade300,
-        width: 0.5,
-      );
-    }
+    Border? tileBorder = _calculateTileBorder(isMerged, mergedGroupId);
 
     return Container(
       decoration: BoxDecoration(
@@ -324,7 +329,7 @@ class _TileContent extends StatelessWidget {
       ),
       child: Stack(
         children: [
-          // Si la celda tiene un elemento, mostrarlo
+          // Elemento principal
           if (tile.type != null)
             Center(
               child: Transform.rotate(
@@ -333,6 +338,26 @@ class _TileContent extends StatelessWidget {
                   tile.type!.icon,
                   color: Colors.white,
                   size: size * 0.7,
+                ),
+              ),
+            ),
+
+          // Indicador de fusión
+          if (isMerged)
+            Positioned(
+              right: 2,
+              bottom: 2,
+              child: Container(
+                width: 8,
+                height: 8,
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.8),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Icon(
+                  Icons.link,
+                  size: 6,
+                  color: tile.type?.color ?? Colors.grey,
                 ),
               ),
             ),
@@ -355,6 +380,52 @@ class _TileContent extends StatelessWidget {
     );
   }
 
+  Border? _calculateTileBorder(bool isMerged, String mergedGroupId) {
+    if (!isMerged) {
+      return Border.all(
+        color: Colors.grey.shade300,
+        width: 0.5,
+      );
+    }
+
+    // Para elementos fusionados, calcular bordes basados en vecinos
+    bool hasTopNeighbor = false;
+    bool hasBottomNeighbor = false;
+    bool hasLeftNeighbor = false;
+    bool hasRightNeighbor = false;
+
+    for (final neighbor in allTiles) {
+      final neighborMergedId = neighbor.getProperty<String>('mergedGroupId', '');
+      if (neighborMergedId == mergedGroupId && neighborMergedId.isNotEmpty) {
+        // Verificar posiciones adyacentes
+        if (neighbor.x == tile.x && neighbor.y == tile.y - 1) {
+          hasTopNeighbor = true;
+        } else if (neighbor.x == tile.x + 1 && neighbor.y == tile.y) {
+          hasRightNeighbor = true;
+        } else if (neighbor.x == tile.x && neighbor.y == tile.y + 1) {
+          hasBottomNeighbor = true;
+        } else if (neighbor.x == tile.x - 1 && neighbor.y == tile.y) {
+          hasLeftNeighbor = true;
+        }
+      }
+    }
+
+    return Border(
+      top: hasTopNeighbor
+          ? BorderSide.none
+          : BorderSide(color: Colors.grey.shade300, width: 0.5),
+      right: hasRightNeighbor
+          ? BorderSide.none
+          : BorderSide(color: Colors.grey.shade300, width: 0.5),
+      bottom: hasBottomNeighbor
+          ? BorderSide.none
+          : BorderSide(color: Colors.grey.shade300, width: 0.5),
+      left: hasLeftNeighbor
+          ? BorderSide.none
+          : BorderSide(color: Colors.grey.shade300, width: 0.5),
+    );
+  }
+
   Color _getTileColor() {
     if (tile.isNotEmpty && tile.type != null) {
       return tile.type!.color;
@@ -363,7 +434,7 @@ class _TileContent extends StatelessWidget {
   }
 }
 
-/// Painter que dibuja la cuadrícula del tablero
+// Grid painter (sin cambios)
 class _GridPainter extends CustomPainter {
   final int columns;
   final int rows;

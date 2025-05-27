@@ -1,9 +1,10 @@
-// lib/screens/zone_editor_screen.dart
+// lib/views/zone_editor_screen.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:table_game/models/board_components/board.dart';
 import '../bloc/zone_editor_bloc/zone_editor_bloc.dart';
 import '../models/board_components/tile.dart';
+import '../models/board_components/element_type.dart';
 import '../widgets/board_grid.dart';
 import '../widgets/element_palette.dart';
 
@@ -88,7 +89,6 @@ class _ZoneEditorView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-
     return Scaffold(
       backgroundColor: const Color(0xFF212121),
       appBar: AppBar(
@@ -184,6 +184,7 @@ class _ZoneEditorView extends StatelessWidget {
                 ),
               ),
 
+              // Barra de información de selección múltiple
               if (state.isMultiSelectMode)
                 Container(
                   color: Colors.blue.withOpacity(0.2),
@@ -211,7 +212,7 @@ class _ZoneEditorView extends StatelessWidget {
                   ),
                 ),
 
-              // Barra de modo actual
+              // Barra de modo actual con indicador de auto-merge
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
                 color: const Color(0xFF333333),
@@ -243,6 +244,9 @@ class _ZoneEditorView extends StatelessWidget {
                         color: Colors.white,
                       ),
                     ),
+
+                    // Indicador de auto-merge
+                    const SizedBox(width: 16),
                     const Spacer(),
                     // Botones de modo
                     Row(
@@ -303,6 +307,9 @@ class _ZoneEditorView extends StatelessWidget {
                             mode: state.editMode,
                             selectedElement: state.selectedElement,
                             showCoordinates: true,
+                            selectedTiles: state.selectedTiles,
+                            isMultiSelectMode: state.isMultiSelectMode,
+                            editorState: state,
                           ),
                         ),
                       ),
@@ -316,8 +323,8 @@ class _ZoneEditorView extends StatelessWidget {
       ),
       bottomSheet: _buildBottomPanel(context, state),
     );
-
   }
+
   Widget _buildBottomPanel(BuildContext context, ZoneEditorLoaded state) {
     // Si estamos en modo selección múltiple con tiles seleccionados
     if (state.isMultiSelectMode && state.selectedTiles.isNotEmpty) {
@@ -331,18 +338,11 @@ class _ZoneEditorView extends StatelessWidget {
     return const SizedBox.shrink();
   }
 
-  // Nuevo panel para selección múltiple
+  // Panel para selección múltiple mejorado
   Widget _buildMultiSelectionPanel(BuildContext context, ZoneEditorLoaded state) {
     final selectedCount = state.selectedTiles.length;
-
-    // Verificar si todos los tiles son del mismo tipo
-    bool allSameType = true;
-    String? elementType;
-
-    if (selectedCount > 0) {
-      elementType = state.selectedTiles.first.type?.id;
-      allSameType = state.selectedTiles.every((tile) => tile.type?.id == elementType);
-    }
+    final mergedGroups = state.selectedMergedGroups;
+    final elementTypes = state.selectedElementTypes;
 
     return Container(
       padding: const EdgeInsets.all(16.0),
@@ -380,31 +380,55 @@ class _ZoneEditorView extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 8),
-          // Mostrar información sobre la selección
-          if (selectedCount > 0 && allSameType)
-            Row(
-              children: [
-                Icon(
-                  state.selectedTiles.first.type?.icon ?? Icons.help_outline,
-                  color: state.selectedTiles.first.type?.color ?? Colors.grey,
-                ),
-                const SizedBox(width: 8),
-                Text(
-                  'Tipo: ${state.selectedTiles.first.type?.name ?? "Desconocido"}',
-                  style: const TextStyle(color: Colors.white70),
-                ),
-              ],
+
+          // Información sobre elementos fusionados
+          if (mergedGroups.isNotEmpty)
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Colors.blue.withOpacity(0.2),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.link, color: Colors.lightBlue, size: 16),
+                  const SizedBox(width: 8),
+                  Text(
+                    '${mergedGroups.length} grupo(s) fusionado(s) incluido(s)',
+                    style: const TextStyle(
+                      color: Colors.lightBlue,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ],
+              ),
             ),
 
-          if (selectedCount > 0 && !allSameType)
-            const Text(
-              'La selección contiene diferentes tipos de elementos',
-              style: TextStyle(color: Colors.red),
+          const SizedBox(height: 8),
+
+          // Información sobre tipos de elementos
+          if (elementTypes.isNotEmpty)
+            Wrap(
+              spacing: 8,
+              children: elementTypes.entries.map((entry) {
+                final elementType = state.availableElements
+                    .firstWhere((e) => e.id == entry.key, orElse: () =>
+                    ElementType(id: entry.key, name: 'Desconocido',
+                        color: Colors.grey, icon: Icons.help,
+                        defaultSize: const Size(1, 1)));
+
+                return Chip(
+                  avatar: Icon(elementType.icon, size: 16),
+                  label: Text('${elementType.name}: ${entry.value}'),
+                  backgroundColor: elementType.color.withOpacity(0.2),
+                  labelStyle: const TextStyle(color: Colors.white),
+                );
+              }).toList(),
             ),
 
           const SizedBox(height: 16),
 
-          // Botones de acción para selección múltiple
+          // Botones de acción
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
             children: [
@@ -412,12 +436,12 @@ class _ZoneEditorView extends StatelessWidget {
                 icon: const Icon(Icons.merge_type),
                 label: const Text('Fusionar'),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: allSameType && selectedCount > 1
+                  backgroundColor: state.allSelectedSameType && selectedCount > 1
                       ? Color(0xFF00BFA5)
                       : Colors.grey,
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                 ),
-                onPressed: allSameType && selectedCount > 1
+                onPressed: state.allSelectedSameType && selectedCount > 1
                     ? () {
                   context.read<ZoneEditorBloc>().add(MergeSelectedTiles());
                 }
@@ -441,11 +465,58 @@ class _ZoneEditorView extends StatelessWidget {
                   context.read<ZoneEditorBloc>().add(ClearTileSelection());
                 },
               ),
+              if (mergedGroups.isNotEmpty)
+                ElevatedButton.icon(
+                  icon: const Icon(Icons.link_off),
+                  label: const Text('Separar'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.orange.shade700,
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  ),
+                  onPressed: () {
+                    _separateMergedElements(context, state);
+                  },
+                ),
             ],
           ),
         ],
       ),
     );
+  }
+
+  // Método para separar elementos fusionados
+  void _separateMergedElements(BuildContext context, ZoneEditorLoaded state) {
+    Board updatedBoard = state.board;
+
+    // Para cada grupo fusionado seleccionado
+    for (final groupId in state.selectedMergedGroups) {
+      final groupTiles = state.getMergedElementTiles(groupId);
+
+      // Remover todos los tiles del grupo
+      for (final tile in groupTiles) {
+        updatedBoard = updatedBoard.removeElement(tile.x, tile.y);
+      }
+
+      // Volver a colocar cada tile como elemento individual
+      for (final tile in groupTiles) {
+        if (tile.type != null) {
+          updatedBoard = updatedBoard.placeElement(
+            tile.x,
+            tile.y,
+            tile.type!,
+            rotation: tile.rotation,
+            properties: {
+              ...tile.properties ?? {},
+              'isMerged': false,
+              'mergedGroupId': null,
+            },
+          );
+        }
+      }
+    }
+
+    context.read<ZoneEditorBloc>().add(BoardUpdated(updatedBoard));
+    context.read<ZoneEditorBloc>().add(ClearTileSelection());
   }
 
   Widget _buildModeButton(

@@ -79,7 +79,30 @@ class MergeSelectedTiles extends ZoneEditorEvent {}
 
 
 
+class ToggleAutoMerge extends ZoneEditorEvent {
+  final bool enabled;
 
+  const ToggleAutoMerge(this.enabled);
+
+  @override
+  List<Object?> get props => [enabled];
+}
+
+class ClearDragTracking extends ZoneEditorEvent {
+  const ClearDragTracking();
+
+  @override
+  List<Object?> get props => [];
+}
+
+class StartDragMode extends ZoneEditorEvent {
+  final String elementTypeId;
+
+  const StartDragMode(this.elementTypeId);
+
+  @override
+  List<Object?> get props => [elementTypeId];
+}
 
 
 class TileTapped extends ZoneEditorEvent {

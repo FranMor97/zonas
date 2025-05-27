@@ -45,73 +45,73 @@ class ZoneEditorBloc extends Bloc<ZoneEditorEvent, ZoneEditorState> {
   }
 
   List<ElementType> get _predefinedElements => [
-        ElementType(
-          id: 'select_tool',
-          name: 'Seleccionar',
-          color: Colors.blue.shade500,
-          icon: Icons.select_all,
-          isSelectionTool: true,
-          defaultSize: const Size(1, 1),
-        ),
-        ElementType(
-          id: 'wall',
-          name: 'Pared',
-          color: Colors.grey.shade800,
-          icon: Icons.square,
-          isWall: true,
-          defaultSize: const Size(1, 1),
-        ),
-        ElementType(
-          id: 'table_rect',
-          name: 'Mesa rectangular',
-          color: Colors.brown.shade700,
-          icon: Icons.table_restaurant,
-          defaultSize: const Size(2, 1),
-        ),
-        ElementType(
-          id: 'table_round',
-          name: 'Mesa redonda',
-          color: Colors.brown.shade500,
-          icon: Icons.circle,
-          shape: 'circle',
-          defaultSize: const Size(1, 1),
-        ),
-        ElementType(
-          id: 'chair',
-          name: 'Silla',
-          color: Colors.orange.shade700,
-          icon: Icons.chair,
-          defaultSize: const Size(1, 1),
-        ),
-        ElementType(
-          id: 'bar',
-          name: 'Barra',
-          color: Colors.amber.shade700,
-          icon: Icons.local_bar,
-          defaultSize: const Size(3, 1),
-        ),
-        ElementType(
-          id: 'plant',
-          name: 'Planta',
-          color: Colors.green.shade600,
-          icon: Icons.nature,
-          defaultSize: const Size(2, 2),
-        ),
-        ElementType(
-          id: 'zone_a',
-          name: 'Zona A',
-          color: Colors.blue.shade500.withOpacity(0.5),
-          icon: Icons.crop_square,
-          defaultSize: const Size(2, 2),
-        ),
-        ElementType(
-          id: 'zone_b',
-          name: 'Zona B',
-          color: Colors.red.shade500.withOpacity(0.5),
-          icon: Icons.crop_square,
-          defaultSize: const Size(2, 2),
-        ),
-      ];
+    ElementType(
+      id: 'select_tool',
+      name: 'Seleccionar',
+      color: Colors.blue.shade500,
+      icon: Icons.select_all,
+      isSelectionTool: true,
+      defaultSize: const Size(1, 1),
+    ),
+    ElementType(
+      id: 'wall',
+      name: 'Pared',
+      color: Colors.grey.shade800,
+      icon: Icons.square,
+      isWall: true,
+      defaultSize: const Size(1, 1),
+    ),
+    ElementType(
+      id: 'table_rect',
+      name: 'Mesa rectangular',
+      color: Colors.brown.shade700,
+      icon: Icons.table_restaurant,
+      defaultSize: const Size(2, 1),
+    ),
+    ElementType(
+      id: 'table_round',
+      name: 'Mesa redonda',
+      color: Colors.brown.shade500,
+      icon: Icons.circle,
+      shape: 'circle',
+      defaultSize: const Size(1, 1),
+    ),
+    ElementType(
+      id: 'chair',
+      name: 'Silla',
+      color: Colors.orange.shade700,
+      icon: Icons.chair,
+      defaultSize: const Size(1, 1),
+    ),
+    ElementType(
+      id: 'bar',
+      name: 'Barra',
+      color: Colors.amber.shade700,
+      icon: Icons.local_bar,
+      defaultSize: const Size(3, 1),
+    ),
+    ElementType(
+      id: 'plant',
+      name: 'Planta',
+      color: Colors.green.shade600,
+      icon: Icons.nature,
+      defaultSize: const Size(2, 2),
+    ),
+    ElementType(
+      id: 'zone_a',
+      name: 'Zona A',
+      color: Colors.blue.shade500.withOpacity(0.5),
+      icon: Icons.crop_square,
+      defaultSize: const Size(2, 2),
+    ),
+    ElementType(
+      id: 'zone_b',
+      name: 'Zona B',
+      color: Colors.red.shade500.withOpacity(0.5),
+      icon: Icons.crop_square,
+      defaultSize: const Size(2, 2),
+    ),
+  ];
 
   FutureOr<void> _onInitialized(ZoneEditorInitialized event, Emitter<ZoneEditorState> emit) async {
     emit(ZoneEditorLoading());
@@ -150,22 +150,22 @@ class ZoneEditorBloc extends Bloc<ZoneEditorEvent, ZoneEditorState> {
 
   void _onToggleMultiSelectMode(ToggleMultiSelectMode event, Emitter<ZoneEditorState> emit) {
     if(state is ZoneEditorLoaded){
-     final currentState = state as ZoneEditorLoaded;
-     if (!event.enabled){
-       emit(currentState.copyWith(
-         isMultiSelectMode: false,
-         selectedTiles: [],
-       ));
-     }else{
-      if(currentState.hasSelectedTile && currentState.selectedTile != null){
+      final currentState = state as ZoneEditorLoaded;
+      if (!event.enabled){
         emit(currentState.copyWith(
-          isMultiSelectMode: true,
-          selectedTiles: [currentState.selectedTile!],
+          isMultiSelectMode: false,
+          selectedTiles: [],
         ));
       }else{
-        emit(currentState.copyWith(isMultiSelectMode: true));
+        if(currentState.hasSelectedTile && currentState.selectedTile != null){
+          emit(currentState.copyWith(
+            isMultiSelectMode: true,
+            selectedTiles: [currentState.selectedTile!],
+          ));
+        }else{
+          emit(currentState.copyWith(isMultiSelectMode: true));
+        }
       }
-     }
     }
   }
   void _onRemoveTileFromSelection(RemoveTileFromSelection event, Emitter<ZoneEditorState> emit) {
@@ -224,17 +224,12 @@ class ZoneEditorBloc extends Bloc<ZoneEditorEvent, ZoneEditorState> {
         return;
       }
 
-
-
       final String mergedId = 'merged_${DateTime.now().millisecondsSinceEpoch}';
-
       final originTile = currentState.selectedTiles.first;
-
 
       Board updatedBoard = currentState.board;
 
       for (final tile in currentState.selectedTiles) {
-
         updatedBoard = updatedBoard.removeElement(tile.x, tile.y);
 
         // Luego colocamos un nuevo elemento con el ID común
@@ -265,8 +260,6 @@ class ZoneEditorBloc extends Bloc<ZoneEditorEvent, ZoneEditorState> {
         selectedTile: null,
         hasSelectedTile: false,
       ));
-
-
     }
   }
 
@@ -281,7 +274,6 @@ class ZoneEditorBloc extends Bloc<ZoneEditorEvent, ZoneEditorState> {
   bool _areAllTilesConnected(List<Tile> tiles) {
     if (tiles.isEmpty) return true;
     if (tiles.length == 1) return true;
-
 
     Set<String> visited = {};
     List<Tile> queue = [tiles.first];
@@ -314,13 +306,13 @@ class ZoneEditorBloc extends Bloc<ZoneEditorEvent, ZoneEditorState> {
       final currentState = state as ZoneEditorLoaded;
 
       if(event.elementType.isSelectionTool){
-      emit(currentState.copyWith(
-        selectedElement: event.elementType,
-        eraserMode: false,
-        editMode: 'select',
-        selectedTile: null,
-        hasSelectedTile: false,
-      ));}else{
+        emit(currentState.copyWith(
+          selectedElement: event.elementType,
+          eraserMode: false,
+          editMode: 'select',
+          selectedTile: null,
+          hasSelectedTile: false,
+        ));}else{
         emit(currentState.copyWith(
           selectedElement: event.elementType,
           eraserMode: false,
@@ -365,28 +357,30 @@ class ZoneEditorBloc extends Bloc<ZoneEditorEvent, ZoneEditorState> {
           if (tile != null && tile.isNotEmpty) {
             if (currentState.isMultiSelectMode){
               if (currentState.isTileSelected(event.x, event.y)) {
-                List<Tile> updateSelection =  List.from(currentState.selectedTiles)..removeWhere((t) => t.x == event.x && t.y == event.y);
+                List<Tile> updateSelection = List.from(currentState.selectedTiles)
+                  ..removeWhere((t) => t.x == event.x && t.y == event.y);
 
                 emit(currentState.copyWith(selectedTiles: updateSelection, isMultiSelectMode: updateSelection.isNotEmpty));
-             }else{
-              if (_canAddToSelection(currentState, tile)){
-                emit(currentState.copyWith(selectedTiles:[...currentState.selectedTiles , tile] ));
-              }else{
-                emit(const ZoneEditorSnackError('No se puede agregar a la selección'));
-                emit(currentState);
+              } else {
+                if (_canAddToSelection(currentState, tile)){
+                  emit(currentState.copyWith(selectedTiles:[...currentState.selectedTiles, tile]));
+                } else {
+                  emit(const ZoneEditorSnackError('No se puede agregar a la selección'));
+                  emit(currentState);
+                }
               }
-              }
-            }else{
+            } else {
+              // Modified: Don't activate multi-selection mode when selecting a single tile
               emit(
                 currentState.copyWith(
                   selectedTile: tile,
                   hasSelectedTile: true,
-                  selectedTiles: [tile],
-                  isMultiSelectMode: true,
+                  selectedTiles: [], // Keep selectedTiles empty
+                  isMultiSelectMode: false, // Don't enable multi-select mode
                 ),
               );
             }
-          }else{
+          } else {
             emit(currentState.copyWith(
               selectedTile: null,
               hasSelectedTile: false,
@@ -395,7 +389,6 @@ class ZoneEditorBloc extends Bloc<ZoneEditorEvent, ZoneEditorState> {
             ));
           }
           break;
-
 
         case 'move':
           if (currentState.hasSelectedTile && currentState.selectedTile != null) {
@@ -422,10 +415,7 @@ class ZoneEditorBloc extends Bloc<ZoneEditorEvent, ZoneEditorState> {
     }
   }
 
-
-
   bool _canAddToSelection(ZoneEditorLoaded state, Tile newTile) {
-
     if (state.selectedTiles.isEmpty) return true;
 
     if (state.selectedTiles.first.type?.id != newTile.type?.id) return false;
@@ -459,9 +449,9 @@ class ZoneEditorBloc extends Bloc<ZoneEditorEvent, ZoneEditorState> {
   }
 
   void _onEraserModeTaggled(
-    EraserModeToggled event,
-    Emitter<ZoneEditorState> emit,
-  ) {
+      EraserModeToggled event,
+      Emitter<ZoneEditorState> emit,
+      ) {
     if (state is ZoneEditorLoaded) {
       final currentState = state as ZoneEditorLoaded;
       emit(currentState.copyWith(
@@ -485,22 +475,24 @@ class ZoneEditorBloc extends Bloc<ZoneEditorEvent, ZoneEditorState> {
   }
 
   void _onTileSelected(
-    TileSelected event,
-    Emitter<ZoneEditorState> emit,
-  ) {
+      TileSelected event,
+      Emitter<ZoneEditorState> emit,
+      ) {
     if (state is ZoneEditorLoaded) {
       final currentState = state as ZoneEditorLoaded;
+      // Modified to not automatically enter multi-select mode
       emit(currentState.copyWith(
         selectedTile: event.tile,
         hasSelectedTile: true,
+        isMultiSelectMode: false, // Don't enable multi-select by default
       ));
     }
   }
 
   void _onRotateSelectedElement(
-    RotateSelectedElement event,
-    Emitter<ZoneEditorState> emit,
-  ) {
+      RotateSelectedElement event,
+      Emitter<ZoneEditorState> emit,
+      ) {
     if (state is ZoneEditorLoaded) {
       final currentState = state as ZoneEditorLoaded;
 
@@ -522,7 +514,7 @@ class ZoneEditorBloc extends Bloc<ZoneEditorEvent, ZoneEditorState> {
 
             // Encontrar el nuevo tile de origen para mantener la selección
             final newOrigin = updatedBoard.tiles.firstWhere(
-              (t) => t.elementId == tile.elementId && t.isOrigin,
+                  (t) => t.elementId == tile.elementId && t.isOrigin,
               orElse: () => tile,
             );
 
@@ -540,9 +532,9 @@ class ZoneEditorBloc extends Bloc<ZoneEditorEvent, ZoneEditorState> {
   }
 
   void _onMoveSelectedElement(
-    MoveSelectedElement event,
-    Emitter<ZoneEditorState> emit,
-  ) {
+      MoveSelectedElement event,
+      Emitter<ZoneEditorState> emit,
+      ) {
     if (state is ZoneEditorLoaded) {
       final currentState = state as ZoneEditorLoaded;
 
@@ -581,9 +573,9 @@ class ZoneEditorBloc extends Bloc<ZoneEditorEvent, ZoneEditorState> {
   }
 
   void _onUpdateElementProperties(
-    UpdateElementProperties event,
-    Emitter<ZoneEditorState> emit,
-  ) {
+      UpdateElementProperties event,
+      Emitter<ZoneEditorState> emit,
+      ) {
     if (state is ZoneEditorLoaded) {
       final currentState = state as ZoneEditorLoaded;
 
@@ -630,9 +622,9 @@ class ZoneEditorBloc extends Bloc<ZoneEditorEvent, ZoneEditorState> {
   }
 
   void _onSaveCurrentBoard(
-    SaveCurrentBoard event,
-    Emitter<ZoneEditorState> emit,
-  ) {
+      SaveCurrentBoard event,
+      Emitter<ZoneEditorState> emit,
+      ) {
     if (state is ZoneEditorLoaded) {
       final currentState = state as ZoneEditorLoaded;
 
@@ -692,10 +684,145 @@ class ZoneEditorBloc extends Bloc<ZoneEditorEvent, ZoneEditorState> {
     if (state is ZoneEditorLoaded) {
       final currentState = state as ZoneEditorLoaded;
 
+      // First save current state to history if needed
       if (_undoStack.isNotEmpty && currentState.board != _undoStack.first) {
         _saveToHistory(currentState.board);
       }
+
+      // If we're in place mode, we should check for elements to merge
+      if (currentState.editMode == 'place') {
+        _autoMergeAdjacentElements(emit);
+      }
     }
+  }
+
+  // Helper method to identify and merge adjacent elements of the same type
+  void _autoMergeAdjacentElements(Emitter<ZoneEditorState> emit) {
+    if (state is ZoneEditorLoaded) {
+      final currentState = state as ZoneEditorLoaded;
+      final board = currentState.board;
+      final tiles = board.tiles.where((tile) => tile.isNotEmpty).toList();
+
+      // Create a map to group tiles by element type
+      Map<String, List<Tile>> tilesByType = {};
+
+      // Group tiles by their element type ID
+      for (var tile in tiles) {
+        if (tile.type != null) {
+          final typeId = tile.type!.id;
+          if (!tilesByType.containsKey(typeId)) {
+            tilesByType[typeId] = [];
+          }
+          tilesByType[typeId]!.add(tile);
+        }
+      }
+
+      // For each type, find adjacent groups and merge them
+      Board updatedBoard = board;
+      bool didMerge = false;
+
+      for (var typeId in tilesByType.keys) {
+        final tilesOfType = tilesByType[typeId]!;
+
+        // Find groups of adjacent tiles
+        final List<List<Tile>> adjacentGroups = _findAdjacentGroups(tilesOfType);
+
+        // For each group of adjacent tiles, merge them if they have different element IDs
+        for (var group in adjacentGroups) {
+          if (group.length > 1) {
+            // Check if all tiles in the group have different element IDs
+            final Set<String?> elementIds = {};
+            for (var tile in group) {
+              if (tile.elementId != null) elementIds.add(tile.elementId);
+            }
+
+            // If there are different element IDs, merge them
+            if (elementIds.length > 1) {
+              final mergedId = 'merged_${DateTime.now().millisecondsSinceEpoch}';
+              final originTile = group.first;
+
+              // Remove all tiles in the group
+              for (var tile in group) {
+                updatedBoard = updatedBoard.removeElement(tile.x, tile.y);
+              }
+
+              // Place them back with the same mergedId
+              for (var tile in group) {
+                final newTile = tile.asPartOfElement(
+                  elementType: tile.type!,
+                  elementId: mergedId,
+                  originX: originTile.x,
+                  originY: originTile.y,
+                  rotation: originTile.rotation,
+                  additionalProperties: {
+                    ...tile.properties ?? {},
+                    'isMerged': true,
+                    'mergedGroupId': mergedId,
+                  },
+                );
+
+                updatedBoard = updatedBoard.updateTile(newTile);
+              }
+
+              didMerge = true;
+            }
+          }
+        }
+      }
+
+      // If we did any merges, update the board
+      if (didMerge) {
+        _saveToHistory(updatedBoard);
+        emit(currentState.copyWith(board: updatedBoard));
+      }
+    }
+  }
+
+  // Helper method to find groups of adjacent tiles
+
+  _findAdjacentGroups(List<Tile> tiles) {
+    List<List<Tile>> groups = [];
+    Set<String> visited = {};
+
+    for (var tile in tiles) {
+      final key = '${tile.x},${tile.y}';
+      if (visited.contains(key)) continue;
+
+      // Start a new group with this tile
+      List<Tile> group = [];
+      List<Tile> queue = [tile];
+
+      while (queue.isNotEmpty) {
+        final current = queue.removeAt(0);
+        final currentKey = '${current.x},${current.y}';
+
+        if (visited.contains(currentKey)) continue;
+        visited.add(currentKey);
+        group.add(current);
+
+        // Add adjacent tiles of the same type to the queue
+        for (var otherTile in tiles) {
+          final otherKey = '${otherTile.x},${otherTile.y}';
+          if (!visited.contains(otherKey)) {
+            if (_areAdjacent(current, otherTile)) {
+              queue.add(otherTile);
+            }
+          }
+        }
+      }
+
+      if (group.isNotEmpty) {
+        groups.add(group);
+      }
+    }
+
+    return groups;
+  }
+
+  // Helper method to check if two tiles are adjacent
+  bool _areAdjacent(Tile a, Tile b) {
+    return (a.x == b.x && (a.y == b.y + 1 || a.y == b.y - 1)) ||
+        (a.y == b.y && (a.x == b.x + 1 || a.x == b.x - 1));
   }
 
   void _onEraseDragg(EraseDragg event, Emitter<ZoneEditorState> emit) {

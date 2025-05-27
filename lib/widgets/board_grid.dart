@@ -1,9 +1,10 @@
-
 import 'package:flutter/material.dart';
 import 'package:table_game/bloc/zone_editor_bloc/zone_editor_bloc.dart';
 import 'package:table_game/models/board_components/board.dart';
 import 'package:table_game/models/board_components/element_type.dart';
 import 'package:table_game/models/board_components/tile.dart';
+import 'package:table_game/widgets/placement_overlay.dart';
+import 'package:table_game/widgets/tile_content.dart';
 
 class BoardGrid extends StatefulWidget {
   final Board board;
@@ -18,7 +19,6 @@ class BoardGrid extends StatefulWidget {
   final VoidCallback? onRightClick;
   final List<Tile> selectedTiles;
   final bool isMultiSelectMode;
-  // Nuevo parámetro para el estado completo
   final ZoneEditorLoaded? editorState;
 
   const BoardGrid({
@@ -43,30 +43,28 @@ class BoardGrid extends StatefulWidget {
 }
 
 class _BoardGridState extends State<BoardGrid> {
-  Offset? _localMousePosition;
+  final ValueNotifier<Offset?> _mousePositionNotifier = ValueNotifier(null);
   bool _isHovering = false;
+
+  @override
+  void dispose() {
+    _mousePositionNotifier.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     final double boardWidth = widget.board.config.columns * widget.board.config.tileSize;
     final double boardHeight = widget.board.config.rows * widget.board.config.tileSize;
 
-    final showOverlay = widget.mode == 'place' &&
-        widget.selectedElement != null &&
-        !widget.selectedElement!.isSelectionTool &&
-        _isHovering &&
-        _localMousePosition != null;
-
     return MouseRegion(
       onEnter: (_) => setState(() => _isHovering = true),
-      onExit: (_) => setState(() {
-        _isHovering = false;
-        _localMousePosition = null;
-      }),
+      onExit: (_) {
+        setState(() => _isHovering = false);
+        _mousePositionNotifier.value = null;
+      },
       onHover: (event) {
-        setState(() {
-          _localMousePosition = event.localPosition;
-        });
+        _mousePositionNotifier.value = event.localPosition;
       },
       child: GestureDetector(
         onSecondaryTap: widget.onRightClick,
@@ -80,7 +78,6 @@ class _BoardGridState extends State<BoardGrid> {
           child: Stack(
             clipBehavior: Clip.hardEdge,
             children: [
-              // Cuadrícula de fondo
               CustomPaint(
                 size: Size(boardWidth, boardHeight),
                 painter: _GridPainter(
@@ -89,15 +86,27 @@ class _BoardGridState extends State<BoardGrid> {
                   cellSize: widget.board.config.tileSize,
                 ),
               ),
-
-              // Celdas del tablero
               ...widget.board.tiles.map((tile) => _buildTileWidget(context, tile)),
-
-              // Contornos de selección mejorados
               ..._buildSelectionOverlays(),
-
-              // Overlay del elemento a colocar
-              if (showOverlay) _buildPlacementOverlay(),
+              ValueListenableBuilder<Offset?>(
+                valueListenable: _mousePositionNotifier,
+                builder: (context, localMousePosition, _) {
+                  final showOverlay = widget.mode == 'place' &&
+                      widget.selectedElement != null &&
+                      !widget.selectedElement!.isSelectionTool &&
+                      _isHovering &&
+                      localMousePosition != null;
+                  if (showOverlay) {
+                    return PlacementOverlay(
+                      elementType: widget.selectedElement!,
+                      tileSize: widget.board.config.tileSize,
+                      localMousePosition: localMousePosition,
+                      board: widget.board,
+                    );
+                  }
+                  return const SizedBox.shrink();
+                },
+              ),
             ],
           ),
         ),
@@ -105,65 +114,45 @@ class _BoardGridState extends State<BoardGrid> {
     );
   }
 
-  // Método mejorado para construir overlays de selección
   List<Widget> _buildSelectionOverlays() {
     List<Widget> overlays = [];
 
     if (widget.editorState != null) {
       final state = widget.editorState!;
 
-      // Selección individual con soporte para elementos fusionados
       if (state.hasSelectedTile && state.selectedTile != null && !state.isMultiSelectMode) {
         final selectedTile = state.selectedTile!;
 
         if (selectedTile.isMerged && selectedTile.mergedGroupId != null) {
-          // Mostrar selección para todo el grupo fusionado
           final groupTiles = state.getMergedElementTiles(selectedTile.mergedGroupId!);
           for (final tile in groupTiles) {
             overlays.add(_buildSelectionOverlay(tile, Colors.blue, isMergedGroup: true));
           }
         } else {
-          // Selección individual normal
           overlays.add(_buildSelectionOverlay(selectedTile, Colors.blue));
         }
       }
 
-      // Selección múltiple
       if (state.isMultiSelectMode && state.selectedTiles.isNotEmpty) {
-        // Agrupar tiles por grupos fusionados
         Map<String, List<Tile>> mergedGroups = {};
         List<Tile> individualTiles = [];
 
         for (final tile in state.selectedTiles) {
           if (tile.isMerged && tile.mergedGroupId != null) {
-            if (!mergedGroups.containsKey(tile.mergedGroupId)) {
-              mergedGroups[tile.mergedGroupId!] = [];
-            }
-            mergedGroups[tile.mergedGroupId!]!.add(tile);
+            mergedGroups.putIfAbsent(tile.mergedGroupId!, () => []).add(tile);
           } else {
             individualTiles.add(tile);
           }
         }
 
-        // Overlays para grupos fusionados
         for (final group in mergedGroups.values) {
           for (final tile in group) {
-            overlays.add(_buildSelectionOverlay(
-              tile,
-              Colors.lightBlue,
-              isMergedGroup: true,
-              isMultiSelect: true,
-            ));
+            overlays.add(_buildSelectionOverlay(tile, Colors.lightBlue, isMergedGroup: true, isMultiSelect: true));
           }
         }
 
-        // Overlays para tiles individuales
         for (final tile in individualTiles) {
-          overlays.add(_buildSelectionOverlay(
-            tile,
-            Colors.lightBlue,
-            isMultiSelect: true,
-          ));
+          overlays.add(_buildSelectionOverlay(tile, Colors.lightBlue, isMultiSelect: true));
         }
       }
     }
@@ -188,14 +177,11 @@ class _BoardGridState extends State<BoardGrid> {
             color: color,
             width: isMergedGroup ? 3 : 2,
           ),
-          color: isMultiSelect
-              ? color.withOpacity(0.2)
-              : Colors.transparent,
+          color: isMultiSelect ? color.withOpacity(0.2) : Colors.transparent,
         ),
-        child: isMergedGroup ? Container(
-          decoration: BoxDecoration(
-            color: color.withOpacity(0.1),
-          ),
+        child: isMergedGroup
+            ? Container(
+          decoration: BoxDecoration(color: color.withOpacity(0.1)),
           child: Center(
             child: Icon(
               Icons.link,
@@ -203,7 +189,8 @@ class _BoardGridState extends State<BoardGrid> {
               size: 12,
             ),
           ),
-        ) : null,
+        )
+            : null,
       ),
     );
   }
@@ -225,7 +212,6 @@ class _BoardGridState extends State<BoardGrid> {
             ? (details) {
           final RenderBox renderBox = context.findRenderObject() as RenderBox;
           final Offset localOffset = renderBox.globalToLocal(details.globalPosition);
-
           final int gridX = (localOffset.dx / widget.board.config.tileSize).floor();
           final int gridY = (localOffset.dy / widget.board.config.tileSize).floor();
 
@@ -242,7 +228,7 @@ class _BoardGridState extends State<BoardGrid> {
         }
             : null,
         onPanEnd: widget.onDragEnd != null ? (details) => widget.onDragEnd!() : null,
-        child: _TileContent(
+        child: TileContent(
           tile: tile,
           size: size,
           showCoordinates: widget.showCoordinates,
@@ -252,189 +238,8 @@ class _BoardGridState extends State<BoardGrid> {
       ),
     );
   }
-
-  Widget _buildPlacementOverlay() {
-    final elementType = widget.selectedElement!;
-    final tileSize = widget.board.config.tileSize;
-
-    double width = elementType.defaultSize.width * tileSize;
-    double height = elementType.defaultSize.height * tileSize;
-
-    final gridX = (_localMousePosition!.dx / tileSize).floor();
-    final gridY = (_localMousePosition!.dy / tileSize).floor();
-
-    final alignedX = gridX * tileSize;
-    final alignedY = gridY * tileSize;
-
-    final canPlace = widget.board.canPlaceElement(gridX, gridY, elementType);
-
-    return Positioned(
-      left: alignedX.toDouble(),
-      top: alignedY.toDouble(),
-      child: IgnorePointer(
-        child: Opacity(
-          opacity: 0.6,
-          child: Container(
-            width: width,
-            height: height,
-            decoration: BoxDecoration(
-              color: elementType.color.withOpacity(canPlace ? 0.7 : 0.3),
-              border: Border.all(
-                color: canPlace ? Colors.white : Colors.red,
-                width: 2,
-              ),
-              borderRadius: BorderRadius.circular(4),
-            ),
-            child: Center(
-              child: Icon(
-                elementType.icon,
-                color: Colors.white,
-                size: (width < height ? width : height) * 0.6,
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
 }
 
-// Tile content mejorado
-class _TileContent extends StatelessWidget {
-  final Tile tile;
-  final double size;
-  final bool showCoordinates;
-  final List<Tile> allTiles;
-  final ZoneEditorLoaded? editorState;
-
-  const _TileContent({
-    required this.tile,
-    required this.size,
-    required this.showCoordinates,
-    required this.allTiles,
-    this.editorState,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final bool isMerged = tile.getProperty<bool>('isMerged', false);
-    final String mergedGroupId = tile.getProperty<String>('mergedGroupId', '');
-
-    Border? tileBorder = _calculateTileBorder(isMerged, mergedGroupId);
-
-    return Container(
-      decoration: BoxDecoration(
-        color: _getTileColor(),
-        border: tileBorder,
-      ),
-      child: Stack(
-        children: [
-          // Elemento principal
-          if (tile.type != null)
-            Center(
-              child: Transform.rotate(
-                angle: tile.rotation * (3.1415926535 / 180),
-                child: Icon(
-                  tile.type!.icon,
-                  color: Colors.white,
-                  size: size * 0.7,
-                ),
-              ),
-            ),
-
-          // Indicador de fusión
-          if (isMerged)
-            Positioned(
-              right: 2,
-              bottom: 2,
-              child: Container(
-                width: 8,
-                height: 8,
-                decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.8),
-                  borderRadius: BorderRadius.circular(4),
-                ),
-                child: Icon(
-                  Icons.link,
-                  size: 6,
-                  color: tile.type?.color ?? Colors.grey,
-                ),
-              ),
-            ),
-
-          // Coordenadas para debugging
-          if (showCoordinates)
-            Positioned(
-              left: 2,
-              top: 2,
-              child: Text(
-                '${tile.x},${tile.y}',
-                style: TextStyle(
-                  fontSize: 8,
-                  color: tile.isNotEmpty ? Colors.white : Colors.black54,
-                ),
-              ),
-            ),
-        ],
-      ),
-    );
-  }
-
-  Border? _calculateTileBorder(bool isMerged, String mergedGroupId) {
-    if (!isMerged) {
-      return Border.all(
-        color: Colors.grey.shade300,
-        width: 0.5,
-      );
-    }
-
-    // Para elementos fusionados, calcular bordes basados en vecinos
-    bool hasTopNeighbor = false;
-    bool hasBottomNeighbor = false;
-    bool hasLeftNeighbor = false;
-    bool hasRightNeighbor = false;
-
-    for (final neighbor in allTiles) {
-      final neighborMergedId = neighbor.getProperty<String>('mergedGroupId', '');
-      if (neighborMergedId == mergedGroupId && neighborMergedId.isNotEmpty) {
-        // Verificar posiciones adyacentes
-        if (neighbor.x == tile.x && neighbor.y == tile.y - 1) {
-          hasTopNeighbor = true;
-        } else if (neighbor.x == tile.x + 1 && neighbor.y == tile.y) {
-          hasRightNeighbor = true;
-        } else if (neighbor.x == tile.x && neighbor.y == tile.y + 1) {
-          hasBottomNeighbor = true;
-        } else if (neighbor.x == tile.x - 1 && neighbor.y == tile.y) {
-          hasLeftNeighbor = true;
-        }
-      }
-    }
-
-    return Border(
-      top: hasTopNeighbor
-          ? BorderSide.none
-          : BorderSide(color: Colors.grey.shade300, width: 0.5),
-      right: hasRightNeighbor
-          ? BorderSide.none
-          : BorderSide(color: Colors.grey.shade300, width: 0.5),
-      bottom: hasBottomNeighbor
-          ? BorderSide.none
-          : BorderSide(color: Colors.grey.shade300, width: 0.5),
-      left: hasLeftNeighbor
-          ? BorderSide.none
-          : BorderSide(color: Colors.grey.shade300, width: 0.5),
-    );
-  }
-
-  Color _getTileColor() {
-    if (tile.isNotEmpty && tile.type != null) {
-      return tile.type!.color;
-    }
-    return Colors.transparent;
-  }
-}
-
-// Grid painter (sin cambios)
 class _GridPainter extends CustomPainter {
   final int columns;
   final int rows;
@@ -452,13 +257,11 @@ class _GridPainter extends CustomPainter {
       ..color = Colors.grey.shade300
       ..strokeWidth = 0.5;
 
-    // Dibujar líneas verticales
     for (int i = 0; i <= columns; i++) {
       final x = i * cellSize;
       canvas.drawLine(Offset(x, 0), Offset(x, size.height), paint);
     }
 
-    // Dibujar líneas horizontales
     for (int i = 0; i <= rows; i++) {
       final y = i * cellSize;
       canvas.drawLine(Offset(0, y), Offset(size.width, y), paint);

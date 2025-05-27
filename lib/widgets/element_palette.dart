@@ -31,7 +31,7 @@ class ElementPalette extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      color: Color(0xFF333333), // Fondo oscuro para la paleta
+      color: const Color(0xFF333333), // Fondo oscuro para la paleta
       child: Padding(
         padding: const EdgeInsets.all(8.0),
         child: Column(
@@ -129,8 +129,8 @@ class ElementPalette extends StatelessWidget {
         margin: const EdgeInsets.symmetric(horizontal: 4),
         decoration: BoxDecoration(
           color: isSelected
-              ? Color(0xFF1E88E5) // Azul seleccionado
-              : Color(0xFF424242), // Gris oscuro para los items
+              ? const Color(0xFF1E88E5) // Azul seleccionado
+              : const Color(0xFF424242), // Gris oscuro para los items
           borderRadius: BorderRadius.circular(8),
           border: Border.all(
             color: isSelected

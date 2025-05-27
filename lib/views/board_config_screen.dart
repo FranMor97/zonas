@@ -5,7 +5,7 @@ import 'package:table_game/utils/config-sliders.dart';
 import '../bloc/board_config/board_config_bloc.dart';
 import '../bloc/zone_editor_bloc/zone_editor_bloc.dart';
 import '../models/board_config.dart';
-import 'zone_editor_screen.dart';
+import 'zone_editor/zone_editor_screen.dart';
 
 class BoardConfigScreen extends StatelessWidget {
   const BoardConfigScreen({Key? key}) : super(key: key);

@@ -1,7 +1,6 @@
 // lib/widgets/draggable_element_overlay.dart
 import 'package:flutter/material.dart';
 import '../models/board_components/tile.dart';
-import '../models/board_components/element_type.dart';
 
 class DraggableElementOverlay extends StatelessWidget {
   final Tile? selectedTile;
